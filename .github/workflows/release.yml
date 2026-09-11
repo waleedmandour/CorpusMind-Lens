@@ -1,0 +1,85 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+# Lens's own release pipeline (§12): engine sidecar (PyInstaller) + desktop
+# bundles + PWA artifact, built from this repo only — never as a secondary
+# target of another product's workflow (the parent's documented regression).
+jobs:
+  engine-binaries:
+    name: lens-engine sidecar (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact: lens-engine-linux
+          - os: windows-latest
+            artifact: lens-engine-windows
+          - os: macos-latest
+            artifact: lens-engine-macos
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build sidecar
+        working-directory: lens-engine
+        run: |
+          pip install pyinstaller .
+          pyinstaller --onefile --name lens-engine -c lens_engine/__main__.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: lens-engine/dist/lens-engine*
+
+  desktop:
+    name: desktop bundles (${{ matrix.os }})
+    needs: engine-binaries
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Build web bundle
+        working-directory: lens-web
+        run: npm install && npm run build
+      - name: Tauri build
+        working-directory: lens-desktop/src-tauri
+        run: |
+          cargo install tauri-cli --version "^2" || true
+          cargo tauri build || cargo build --release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lens-desktop-${{ matrix.os }}
+          path: |
+            lens-desktop/src-tauri/target/release/bundle/**/*
+            lens-desktop/src-tauri/target/release/lens-desktop*
+
+  github-release:
+    name: Tagged GitHub release
+    needs: [engine-binaries, desktop]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { path: dist }
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: CHANGELOG.md
+          files: dist/**/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Zenodo note
+        run: |
+          echo "On first tagged release, mint/confirm the reserved DOI" \
+               "10.5281/zenodo.21673083 against this repository (§12, §19)."

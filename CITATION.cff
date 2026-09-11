@@ -1,0 +1,39 @@
+cff-version: 1.2.0
+message: >-
+  If you use CorpusMind Lens in your research, please cite it using this
+  metadata (BibTeX or the CSL variant your publisher prefers).
+title: >-
+  CorpusMind Lens: a local-first, AI-native visual and multimodal
+  corpus-analysis environment
+abstract: >-
+  CorpusMind Lens turns sets of images — with or without accompanying text —
+  into publication-ready, statistically grounded, framework-lensed discourse
+  analysis. It implements a five-dimension visual annotation framework
+  (Cohn 2013; Kress & van Leeuwen 2006; Bateman 2008; Bordwell & Thompson
+  2013; McCloud 1993; Barthes 1977; Royce 2007) and applies the full corpus-
+  linguistics measurement battery — frequency, diversity, n-grams,
+  co-occurrence association, keyness with paired significance and effect
+  sizes, dispersion, and concordance — over visual annotation sequences, for
+  the first time giving image corpora the same evidentiary apparatus corpus
+  linguistics has always demanded of text.
+authors:
+  - family-names: Mandour
+    given-names: Waleed
+    affiliation: Sultan Qaboos University
+  - family-names: Ibrahim
+    given-names: Wesam
+    affiliation: Princess Nourah Bint Abdulrahman University
+version: 0.1.0
+doi: 10.5281/zenodo.21673083
+license: AGPL-3.0-only
+repository-code: "https://github.com/waleedmandour/CorpusMind-Lens"
+keywords:
+  - multimodal discourse analysis
+  - visual grammar
+  - corpus linguistics
+  - social semiotics
+  - critical discourse analysis
+  - image corpus
+  - computational visual semiotics
+  - distant viewing
+date-released: "2026-09-12"

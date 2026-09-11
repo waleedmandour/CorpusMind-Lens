@@ -1,0 +1,71 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "CorpusMind Lens",
+  "version": "0.1.0",
+  "identifier": "org.corpusmind.lens",
+  "build": {
+    "frontendDist": "../../lens-web/dist",
+    "devUrl": "http://localhost:5173",
+    "beforeDevCommand": "",
+    "beforeBuildCommand": ""
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "CorpusMind Lens",
+        "url": "index.html",
+        "width": 1280,
+        "height": 832,
+        "minWidth": 1024,
+        "minHeight": 640,
+        "resizable": true,
+        "decorations": true,
+        "transparent": false
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; img-src 'self' data: blob: asset: http://asset.localhost; connect-src 'self' http://127.0.0.1:8765 http://localhost:8765 http://127.0.0.1:11434 http://127.0.0.1:1234 ipc://localhost http://ipc.localhost; style-src 'self' 'unsafe-inline'; script-src 'self'",
+      "assetProtocol": {
+        "enable": true,
+        "scope": ["$RESOURCE/*", "$APPDATA/**", "$APPLOCALDATA/**"]
+      }
+    },
+    "withGlobalTauri": false
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["msi", "nsis", "app", "dmg", "deb", "appimage"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "resources": {
+      "binaries/lens-engine/": "lens-engine/"
+    },
+    "externalBin": [],
+    "publisher": "Dr. Waleed Mandour (Sultan Qaboos University) and Prof. Wesam Ibrahim (PNU)",
+    "macOS": {
+      "signingIdentity": null,
+      "entitlements": null,
+      "exceptionDomain": "",
+      "frameworks": [],
+      "minimumSystemVersion": "13.0"
+    },
+    "copyright": "Copyright (C) 2026 Dr. Waleed Mandour (Sultan Qaboos University) and Prof. Wesam Ibrahim (Princess Nourah Bint Abdulrahman University). Licensed under AGPL-3.0-only.",
+    "category": "Education",
+    "shortDescription": "CorpusMind Lens — local-first visual & multimodal corpus analysis.",
+    "longDescription": "CorpusMind Lens turns sets of images into publication-ready, statistically grounded, framework-lensed discourse analysis. Own repository, own identity, own release cycle — interoperating with CorpusMind (Text) only through an optional, versioned Companion Mode API. Runs entirely locally against a local Ollama or LM Studio instance with zero cloud calls by default.",
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser"
+      },
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper"
+      }
+    }
+  },
+  "plugins": {}
+}

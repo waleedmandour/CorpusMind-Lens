@@ -1,0 +1,19 @@
+{
+  "name": "CorpusMind Lens",
+  "short_name": "CM Lens",
+  "description": "Local-first visual & multimodal corpus analysis — turn image sets into publication-ready, framework-lensed discourse analysis.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0b1220",
+  "theme_color": "#2563eb",
+  "lang": "en",
+  "dir": "auto",
+  "icons": [
+    {
+      "src": "/icon-lens.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

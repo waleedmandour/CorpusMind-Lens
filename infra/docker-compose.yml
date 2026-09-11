@@ -1,0 +1,44 @@
+# Self-hosted lab instance of the lens-engine (§15 Phase 4 / §13).
+# Single-tenant-per-instance, mirroring the parent product's proven model:
+# one engine, one data volume, no shared state between instances.
+#
+#   docker compose up --build
+#   → http://127.0.0.1:8765/api/v1/health
+#
+# The web UI is served separately (PWA or `npm run build` behind any static
+# server) pointing at this engine — keep the engine off the public internet
+# unless you add authentication in front of it.
+services:
+  lens-engine:
+    build:
+      context: ../lens-engine
+      dockerfile: ../infra/Dockerfile
+    image: corpusmind/lens-engine:0.1.0
+    container_name: lens-engine
+    restart: unless-stopped
+    ports:
+      - "8765:8765"
+    environment:
+      LENS_HOST: "0.0.0.0"
+      LENS_PORT: "8765"
+      LENS_DATA_DIR: "/data"
+      # Privacy switches stay OFF unless the operator sets them explicitly:
+      LENS_FACIAL_ANALYSIS: "0"
+      LENS_CLOUD_ENABLED: "0"
+      # LENS_ENCRYPTION_KEY: "<fernet key>"   # at-rest encryption for image bytes
+      # LENS_COMPANION_ENABLED: "1"
+      # LENS_COMPANION_BASE_URL: "http://corpusmind-engine:8765"
+    volumes:
+      - lens-data:/data
+      # Optional: mount the reference-data framework YAMLs read-only so the
+      # operator can version them independently of the image.
+      - ../reference-data/frameworks:/app/reference-data/frameworks:ro
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8765/api/v1/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  lens-data:

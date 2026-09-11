@@ -1,0 +1,44 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# --- Node / web ---
+node_modules/
+lens-web/dist/
+*.local
+
+# --- Rust / Tauri ---
+lens-desktop/src-tauri/target/
+lens-desktop/src-tauri/gen/
+
+# --- Engine runtime data (never commit corpora or models) ---
+data/
+lens-engine/data/
+*.sqlite3
+*.db
+models/
+binaries/*.exe
+binaries/corpusmind-lens-engine*
+!lens-desktop/binaries/README.md
+
+# --- OS / editor ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# --- Env (may contain keys) ---
+.env
+.env.*

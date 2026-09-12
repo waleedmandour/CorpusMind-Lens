@@ -43,7 +43,7 @@
       "icons/icon.ico"
     ],
     "resources": {
-      "../../binaries/lens-engine/": "lens-engine/"
+      "../binaries/lens-engine/": "lens-engine/"
     },
     "externalBin": [],
     "publisher": "Dr. Waleed Mandour (Sultan Qaboos University) and Prof. Wesam Ibrahim (PNU)",

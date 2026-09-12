@@ -24,7 +24,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; img-src 'self' data: blob: asset: http://asset.localhost; connect-src 'self' http://127.0.0.1:8765 http://127.0.0.1:8766 http://127.0.0.1:8767 http://127.0.0.1:8768 http://127.0.0.1:8769 http://localhost:8765 http://localhost:8766 http://localhost:8767 http://localhost:8768 http://localhost:8769 http://127.0.0.1:11434 http://localhost:11434 http://127.0.0.1:1234 http://localhost:1234 ipc://localhost http://ipc.localhost; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self' data:",
+      "csp": "default-src 'self'; img-src 'self' data: blob: asset: http://asset.localhost http://127.0.0.1:8765 http://127.0.0.1:8766 http://127.0.0.1:8767 http://127.0.0.1:8768 http://127.0.0.1:8769 http://localhost:8765 http://localhost:8766 http://localhost:8767 http://localhost:8768 http://localhost:8769; connect-src 'self' http://127.0.0.1:8765 http://127.0.0.1:8766 http://127.0.0.1:8767 http://127.0.0.1:8768 http://127.0.0.1:8769 http://localhost:8765 http://localhost:8766 http://localhost:8767 http://localhost:8768 http://localhost:8769 http://127.0.0.1:11434 http://localhost:11434 http://127.0.0.1:1234 http://localhost:1234 ipc://localhost http://ipc.localhost; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self' data:",
       "assetProtocol": {
         "enable": true,
         "scope": ["$RESOURCE/*", "$APPDATA/**", "$APPLOCALDATA/**"]

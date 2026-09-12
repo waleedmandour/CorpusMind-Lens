@@ -62,29 +62,60 @@ jobs:
             --hidden-import uvicorn.protocols.websockets.websockets_impl \
             --hidden-import uvicorn.protocols.websockets.wsproto_impl \
             --hidden-import uvicorn.logging \
-            --hidden-import lens_engine.api.imagesets \
-            --hidden-import lens_engine.api.images \
-            --hidden-import lens_engine.api.annotations \
-            --hidden-import lens_engine.api.analysis \
-            --hidden-import lens_engine.api.detection \
-            --hidden-import lens_engine.api.vision_ai \
-            --hidden-import lens_engine.api.discourse \
-            --hidden-import lens_engine.api.battery \
-            --hidden-import lens_engine.api.compare \
-            --hidden-import lens_engine.api.ocrtools \
-            --hidden-import lens_engine.api.export \
-            --hidden-import lens_engine.api.assistant \
-            --hidden-import lens_engine.api.companion \
-            --hidden-import lens_engine.api.settings_router \
-            --hidden-import lens_engine.api.social \
-            --hidden-import lens_engine.social \
-            --hidden-import lens_engine.social.textutils \
-            --hidden-import lens_engine.social.ethics \
-            --hidden-import lens_engine.social.parsers \
-            --hidden-import lens_engine.social.connectors \
-            --hidden-import lens_engine.social.social_stats \
-            --hidden-import lens_engine.export.tabular \
             lens_engine/__main__.py
+      - name: Smoke test the frozen sidecar (Linux only)
+        if: runner.os == 'Linux'
+        working-directory: lens-engine
+        shell: bash
+        run: |
+          # The v0.2.0 release shipped a sidecar that was missing routes:
+          # PyInstaller cannot see dynamically imported modules, and the
+          # hand-maintained hidden-import list had drifted. main.py now
+          # imports every router statically, but this guard keeps the
+          # guarantee honest: the FROZEN binary must expose the complete
+          # API surface and boot with zero router warnings.
+          LENS_DATA_DIR="$PWD/.smoke-data" LENS_PORT=8798 \
+            LENS_HOST=127.0.0.1 ./dist/lens-engine > .smoke.log 2>&1 &
+          SIDECAR_PID=$!
+          for i in $(seq 1 60); do
+            curl -sf http://127.0.0.1:8798/api/v1/health >/dev/null 2>&1 && break
+            sleep 1
+          done
+          curl -sf http://127.0.0.1:8798/api/v1/health
+          echo
+          curl -sf http://127.0.0.1:8798/openapi.json | python3 -c '
+            import json, sys
+            paths = set(json.load(sys.stdin)["paths"].keys())
+            required = [
+                "/api/v1/projects",
+                "/api/v1/imagesets/{set_id}/images",
+                "/api/v1/imagesets/{set_id}/battery/full",
+                "/api/v1/discourse/frameworks",
+                "/api/v1/assistant/tools",
+                "/api/v1/settings",
+                "/api/v1/ai/local/status",
+                "/api/v1/ai/catalog",
+                "/api/v1/imagesets/{set_id}/semantic-search",
+                "/api/v1/projects/{project_id}/posts",
+                "/api/v1/projects/{project_id}/social/import",
+                "/api/v1/projects/{project_id}/social/fetch",
+                "/api/v1/projects/{project_id}/social-export/posts",
+            ]
+            missing = [p for p in required if p not in paths]
+            print(f"frozen sidecar exposes {len(paths)} paths")
+            if missing:
+                print("MISSING ROUTES:", missing)
+                sys.exit(1)
+          '
+          if grep -q "router_not_registered" .smoke.log; then
+            echo "::error::router_not_registered in frozen sidecar log"
+            cat .smoke.log
+            kill $SIDECAR_PID 2>/dev/null || true
+            exit 1
+          fi
+          kill $SIDECAR_PID 2>/dev/null || true
+          rm -rf .smoke-data .smoke.log
+          echo "frozen sidecar smoke test passed"
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}

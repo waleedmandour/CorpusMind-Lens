@@ -203,6 +203,15 @@ const en = {
     right: "Right",
     attestationStored: "Attestation and provenance are stored with the corpus and included in exports.",
   },
+  offline: {
+    title: "The analysis engine is not reachable",
+    body:
+      "Every feature runs through the local engine, so views stay empty and actions fail until it is up. It normally starts automatically with the app; a first launch can take up to a minute while the system scans the new program.",
+    retry: "Retry now",
+    starting: "Engine starting…",
+    startEngine: "Start the engine",
+    logHint: "Engine log file: ~/.lens-engine-data/logs/lens-engine.log",
+  },
 };
 
 const ar: typeof en = {
@@ -406,6 +415,15 @@ const ar: typeof en = {
     node: "المحور",
     right: "يمين",
     attestationStored: "يُخزَّن الإقرار والمصدر مع الكوربس ويُدرجان في التصديرات.",
+  },
+  offline: {
+    title: "محرك التحليل غير قابل للوصول",
+    body:
+      "كل الميزات تعمل عبر المحرك المحلي، لذلك تبقى الشاشات فارغة وتفشل الإجراءات حتى يعمل. يبدأ عادةً تلقائيًا مع التطبيق؛ وقد يستغرق الإطلاق الأول حتى دقيقة بينما يفحص النظام البرنامج الجديد.",
+    retry: "إعادة المحاولة الآن",
+    starting: "المحرك قيد الإقلاع…",
+    startEngine: "تشغيل المحرك",
+    logHint: "ملف سجل المحرك: ~/.lens-engine-data/logs/lens-engine.log",
   },
 };
 

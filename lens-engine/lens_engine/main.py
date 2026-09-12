@@ -135,42 +135,60 @@ def create_app() -> FastAPI:
 
         return JSONResponse(status_code=502, content={"detail": str(exc)})
 
-    # Routers are imported defensively so the engine boots (health + projects +
-    # storage) even while later-phase modules are absent — the phase-boundary
-    # commits each stay runnable (§15 build discipline).
-    import importlib
+    # Routers are imported STATICALLY on purpose. An earlier revision used
+    # importlib.import_module with a defensive try/except so phase-boundary
+    # commits could boot before later-phase modules existed. That pattern
+    # quietly shipped a crippled sidecar: PyInstaller cannot see dynamic
+    # string imports, so every module missing from the (hand-maintained)
+    # hidden-import list vanished from the packaged engine — the v0.2.0
+    # release shipped without the AI-models and semantic-search routes at
+    # all. Static imports make the frozen build correct by construction and
+    # a broken module fails loudly here instead of silently at runtime.
+    from .api import (
+        analysis,
+        annotations,
+        assistant,
+        battery,
+        compare,
+        companion,
+        detection,
+        discourse,
+        export,
+        health,
+        images,
+        imagesets,
+        local_models,
+        ocrtools,
+        projects,
+        semantic,
+        settings_router,
+        social,
+        vision_ai,
+    )
 
-    from .api import health, projects
-
-    registered = [health.router, projects.router]
-    for mod_name, attr_names in (
-        ("imagesets", ["router"]),
-        ("images", ["router"]),
-        ("annotations", ["router"]),
-        ("analysis", ["router"]),
-        ("detection", ["router"]),
-        ("vision_ai", ["alignment_router", "visual_grammar_router", "discourse_router"]),
-        ("discourse", ["router"]),
-        ("battery", ["router"]),
-        ("compare", ["router"]),
-        ("ocrtools", ["router"]),
-        ("local_models", ["router"]),
-        ("semantic", ["router"]),
-        ("export", ["router"]),
-        ("assistant", ["router"]),
-        ("companion", ["router"]),
-        ("settings_router", ["router"]),
-        ("social", ["router"]),
-    ):
-        try:
-            mod = importlib.import_module(f"lens_engine.api.{mod_name}")
-            for attr in attr_names:
-                registered.append(getattr(mod, attr))
-        except ImportError as e:
-            # The message itself carries module+error: the standard log
-            # format does not render `extra` fields, and an operator tailing
-            # the sidecar's log file must see *why* a router is missing.
-            log.warning("router_not_registered %s: %s", mod_name, e)
+    registered = [
+        health.router,
+        projects.router,
+        imagesets.router,
+        images.router,
+        annotations.router,
+        analysis.router,
+        detection.router,
+        vision_ai.alignment_router,
+        vision_ai.visual_grammar_router,
+        vision_ai.discourse_router,
+        discourse.router,
+        battery.router,
+        compare.router,
+        ocrtools.router,
+        local_models.router,
+        semantic.router,
+        export.router,
+        assistant.router,
+        companion.router,
+        settings_router.router,
+        social.router,
+    ]
 
     for r in registered:
         app.include_router(r, prefix="/api/v1")

@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useShell } from "../shell";
-import { api } from "../lib/api";
+import { api, isDesktopShell, shell } from "../lib/api";
 
 export function OverviewView() {
-  const { t, setActiveSetId, setView } = useShell();
+  const { t, setActiveSetId, setView, toast } = useShell();
   const [projects, setProjects] = useState<any[]>([]);
   const [name, setName] = useState("");
   const [sets, setSets] = useState<Record<string, any[]>>({});
@@ -11,6 +11,9 @@ export function OverviewView() {
   const [bannerDismissed, setBannerDismissed] = useState(
     () => localStorage.getItem("lens.ai-banner-dismissed") === "1"
   );
+  const [engineDown, setEngineDown] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const aliveRef = useRef(true);
 
   const refresh = async () => {
     const ps = await api.listProjects();
@@ -23,13 +26,40 @@ export function OverviewView() {
     );
     setSets(m);
   };
+
+  // Reachability probe: silent while the sidecar boots (Defender first-run
+  // scans can take tens of seconds), then an explicit, actionable banner.
+  const probe = async (announce: boolean) => {
+    setChecking(true);
+    let ok = false;
+    for (let i = 0; i < 8 && aliveRef.current; i++) {
+      try {
+        await api.health();
+        ok = true;
+        break;
+      } catch {
+        await new Promise((r) => setTimeout(r, 1500));
+      }
+    }
+    if (!aliveRef.current) return;
+    setEngineDown(!ok);
+    setChecking(false);
+    if (ok && announce) {
+      toast("Engine connected");
+      refresh().catch(() => undefined);
+    }
+  };
+
   useEffect(() => {
-    refresh().catch(() => undefined);
-    // Graceful no-AI state (v0.2): deterministic features work everywhere;
-    // the banner just points at the Setup card when no backend answers.
+    aliveRef.current = true;
+    probe(false);
     api.providersStatus()
       .then((s) => setAiMissing(!s.ollama.reachable && !s.lmstudio.reachable))
       .catch(() => setAiMissing(false));
+    return () => {
+      aliveRef.current = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const dismiss = () => {
@@ -41,6 +71,37 @@ export function OverviewView() {
     <div>
       <h2>{t.overview.title}</h2>
       <p className="muted" style={{ maxWidth: 720 }}>{t.overview.intro}</p>
+
+      {engineDown && (
+        <div className="card" style={{ borderInlineStart: "4px solid var(--danger, #b91c1c)" }}>
+          <strong style={{ display: "block", marginBottom: 6 }}>{t.offline.title}</strong>
+          <p className="muted" style={{ fontSize: 13, maxWidth: 680, marginTop: 0, lineHeight: 1.6 }}>
+            {t.offline.body}
+          </p>
+          <div className="row" style={{ flexWrap: "wrap" }}>
+            <button className="btn" disabled={checking} onClick={() => probe(true)}>
+              {checking ? t.offline.starting : t.offline.retry}
+            </button>
+            {isDesktopShell() && (
+              <button
+                className="btn secondary"
+                disabled={checking}
+                onClick={async () => {
+                  try {
+                    await shell.startEngine();
+                  } catch {
+                    /* probe reports the outcome */
+                  }
+                  probe(true);
+                }}
+              >
+                {t.offline.startEngine}
+              </button>
+            )}
+          </div>
+          <p className="muted" style={{ fontSize: 12, marginBottom: 0 }}>{t.offline.logHint}</p>
+        </div>
+      )}
 
       {aiMissing && !bannerDismissed && (
         <div className="card" style={{ borderInlineStart: "4px solid #f59e0b" }}>
@@ -71,9 +132,13 @@ export function OverviewView() {
             className="btn"
             disabled={!name.trim()}
             onClick={async () => {
-              await api.createProject(name.trim());
-              setName("");
-              refresh();
+              try {
+                await api.createProject(name.trim());
+                setName("");
+                await refresh();
+              } catch (e: any) {
+                toast(`${t.common.error}: ${e?.message ?? e}. ${t.offline.title}.`, "error");
+              }
             }}
           >
             {t.common.create}

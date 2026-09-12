@@ -77,15 +77,17 @@ jobs:
           LENS_DATA_DIR="$PWD/.smoke-data" LENS_PORT=8798 \
             LENS_HOST=127.0.0.1 ./dist/lens-engine > .smoke.log 2>&1 &
           SIDECAR_PID=$!
+          trap 'kill $SIDECAR_PID 2>/dev/null || true' EXIT
           for i in $(seq 1 60); do
             curl -sf http://127.0.0.1:8798/api/v1/health >/dev/null 2>&1 && break
             sleep 1
           done
           curl -sf http://127.0.0.1:8798/api/v1/health
           echo
-          curl -sf http://127.0.0.1:8798/openapi.json | python3 - <<'PY'
+          curl -sf http://127.0.0.1:8798/openapi.json -o .smoke-openapi.json
+          python3 - <<'PY'
           import json, sys
-          paths = set(json.load(sys.stdin)["paths"].keys())
+          paths = set(json.load(open(".smoke-openapi.json"))["paths"].keys())
           required = [
               "/api/v1/projects",
               "/api/v1/imagesets/{set_id}/images",
@@ -110,11 +112,9 @@ jobs:
           if grep -q "router_not_registered" .smoke.log; then
             echo "::error::router_not_registered in frozen sidecar log"
             cat .smoke.log
-            kill $SIDECAR_PID 2>/dev/null || true
             exit 1
           fi
-          kill $SIDECAR_PID 2>/dev/null || true
-          rm -rf .smoke-data .smoke.log
+          rm -rf .smoke-data .smoke.log .smoke-openapi.json
           echo "frozen sidecar smoke test passed"
       - uses: actions/upload-artifact@v4
         with:

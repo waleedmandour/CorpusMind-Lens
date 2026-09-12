@@ -13,10 +13,15 @@ on:
 #      Windows x64, macOS arm64 (Apple Silicon) AND macOS x64 (x64 CPython
 #      under Rosetta 2 on the arm64 runner — GitHub no longer ships Intel
 #      runners), each bundling the 12 discourse frameworks via --add-data.
+#      These are CI artifacts only: the desktop job downloads them to bundle
+#      them INSIDE the installers (bundle.resources), and they are NOT
+#      attached to the GitHub release — end users download exactly one
+#      installer per platform (single-package UX, v0.1.1). Headless/Docker
+#      users get the engine via the published Docker image instead.
 #   2. desktop — Tauri bundles: deb+AppImage, NSIS .exe+WiX .msi, and a
 #      universal-apple-darwin .app/.dmg covering BOTH Intel and Apple Silicon
 #      (the shell picks the matching sidecar at runtime via its ARCH suffix).
-#   3. github-release — attaches every bundle to the tagged release.
+#   3. github-release — attaches the 5 installers to the tagged release.
 jobs:
   engine-binaries:
     name: lens-engine sidecar (${{ matrix.artifact }})
@@ -179,16 +184,14 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with: { path: dist }
-      - name: Stage release assets (installers only, canonical names)
+      - name: Stage release assets (installers only — one file per platform)
         run: |
           mkdir -p release-assets
-          # Engine sidecars — canonical, ARCH-suffixed, collision-free
-          cp dist/lens-engine-linux/lens-engine        release-assets/lens-engine-linux-x86_64
-          cp dist/lens-engine-windows/lens-engine.exe  release-assets/lens-engine-windows-x86_64.exe
-          cp dist/lens-engine-macos-arm64/lens-engine  release-assets/lens-engine-macos-aarch64
-          cp dist/lens-engine-macos-x64/lens-engine    release-assets/lens-engine-macos-x86_64
-          # Desktop bundles — installers only; never the .app internals or
-          # DMG support scripts that live in the same bundle tree
+          # Installers ONLY. The lens-engine sidecar ships INSIDE every
+          # installer (bundle.resources) — a separate engine download is
+          # never needed by end users (single-package UX, v0.1.1). Engine
+          # binaries remain available as CI artifacts for headless/CLI use;
+          # headless/Docker users use the published Docker image.
           find dist -type f -name '*.deb'       -exec cp {} release-assets/ \;
           find dist -type f -name '*.AppImage'  -exec cp {} release-assets/ \;
           find dist -type f -name '*-setup.exe' -exec cp {} release-assets/ \;
@@ -196,8 +199,8 @@ jobs:
           find dist -type f -name '*.dmg'       -exec cp {} release-assets/ \;
           COUNT=$(ls release-assets | wc -l)
           echo "staged $COUNT assets"; ls -la release-assets/
-          if [ "$COUNT" -lt 9 ]; then
-            echo "::error::expected >= 9 assets (4 engine sidecars + deb/AppImage/setup-exe/msi/dmg), got $COUNT"
+          if [ "$COUNT" -ne 5 ]; then
+            echo "::error::expected exactly 5 installers (deb/AppImage/setup-exe/msi/dmg), got $COUNT"
             exit 1
           fi
       - name: Extract release notes from CHANGELOG

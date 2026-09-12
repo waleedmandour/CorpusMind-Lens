@@ -2,6 +2,16 @@
 
 All notable changes to **CorpusMind Lens** are documented here, in the parent project's prose style: each entry explains *why*, not just *what*.
 
+## [0.1.1] — 2026-09-12 · Single-package release page
+
+**Why:** the v0.1.0 release page listed nine assets — five installers *plus* four standalone `lens-engine-*` binaries. The binaries were a relic of the staging logic (they exist for CI/headless use) and, worse, they *implied* a second mandatory download. A researcher who just wants to analyse an image set should make exactly one decision: which installer matches my platform. Nothing else.
+
+### Changed
+
+- **One installer per platform, nothing else on the release page.** The engine sidecar already ships *inside* every installer (`bundle.resources`), so the four standalone `lens-engine-*` release assets are gone. Engine binaries remain available as CI artifacts for headless/CLI use, and the Docker image (`infra/docker-compose.yml`) covers server deployments. The release staging step now asserts *exactly* 5 assets (deb, AppImage, setup.exe, msi, dmg) instead of ≥9, so any packaging regression fails loudly.
+- **Windows installer hooks.** Ported the parent's NSIS pre-install/pre-uninstall hooks for the sidecar: the stock Tauri NSIS template only stops the main executable, so a surviving `lens-engine.exe` (crash, Task-Manager kill) locked the install tree and broke upgrades ("Error opening file for writing" — the same failure class as Tauri issue #15134). The Lens hooks stop `lens-engine.exe` and `CorpusMind Lens.exe` before any file operation, and deliberately leave the parent CorpusMind (Text) product's processes untouched.
+- README gained a "Download & install (end users)" matrix: one file per platform, with the AI-backend expectation (Ollama/LM Studio detected automatically) stated up front.
+
 ## [0.1.0] — 2026-09-12 · Standalone extraction ("own repo, own identity")
 
 This is the first release of **CorpusMind Lens as its own repository**. It is simultaneously a new beginning and a continuation: the codebase starts its own semantic-versioning line at **0.1.0** rather than continuing the parent monorepo's 1.1.0, because the researchers who cited CorpusMind v1.1.0 cited the *combined* product; the standalone Lens deserves an honest version line of its own whose history begins with this entry, not an accident of a copy-pasted `package.json`. (Decision recorded here per the build brief §19 — version-line continuity was an open decision, and "clean new-repo signal" was chosen.)

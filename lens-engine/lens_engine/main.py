@@ -160,6 +160,7 @@ def create_app() -> FastAPI:
         ("assistant", ["router"]),
         ("companion", ["router"]),
         ("settings_router", ["router"]),
+        ("social", ["router"]),
     ):
         try:
             mod = importlib.import_module(f"lens_engine.api.{mod_name}")

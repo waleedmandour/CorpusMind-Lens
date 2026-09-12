@@ -69,6 +69,16 @@ Batch-run several lenses over a whole set (with per-image error isolation and sk
 
 Ask things like "analyse this poster using Kress & van Leeuwen", "find the most salient recurring visual-morphology categories in this set", or "compare these two campaigns' compositional patterns". The Assistant answers **only** from tool calls into your actual data; every claim shows the tool that grounded it, and anything not grounded is flagged `[ungrounded]` in red. Every tool call is written to a local audit log.
 
+## 7a. The Social Media tab (v0.2)
+
+The Social tab builds social media corpora two ways, and both feed the same analysis battery:
+
+**Import from your own export (offline, no network at all).** Download your data from the platform yourself, then drop the file into Social → Import. Supported: the X (Twitter) archive zip (posts plus attached photos are picked up automatically), Instagram and Facebook "Download Your Information" JSON, TikTok export JSON, and any CSV or JSONL file that contains a text column. Before importing you confirm an ethics attestation, and you can choose to pseudonymise author handles, redact URLs or @mentions; email addresses and phone numbers are always redacted. A provenance record of the import is stored with the corpus. Attached photos are analysed by the vision pipeline like any other image set.
+
+**Fetch through an official free-tier API.** For public content on Mastodon (no key needed, just an instance such as mastodon.social), Reddit (create a free "script" app at reddit.com/prefs/apps and enter the client id and secret), or YouTube (a free API key from Google Cloud Console). Credentials are used for that one request and never stored; requests stay within the platform's free rate limits and only public content is requested. A terms-of-service confirmation is required before the first fetch.
+
+**Analyses.** Word frequency, lexical diversity (TTR, Guiraud's R, MATTR, STTR), n-grams, KWIC concordance, emoji frequency, hashtag frequency, a hashtag co-occurrence network, engagement statistics, engagement-weighted frequency, a posting time series, and keyness against another project. Every result exports as CSV, XML, TSV or JSON, and the post corpus itself exports with all harvested markers.
+
 ## 8. Ethics settings (important)
 
 **Settings → Ethics** explains what is and is not possible:

@@ -1,8 +1,15 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { isRTL, STRINGS, type Lang } from "./i18n/strings";
-import { ENGINE_URL, LENS_VERSION } from "./lib/api";
+import { engineUrl, LENS_VERSION } from "./lib/api";
+import { WelcomeFlow } from "./components/Welcome";
 
-type ViewId = "overview" | "imagesets" | "workbench" | "assistant" | "settings";
+export type ViewId = "overview" | "imagesets" | "workbench" | "social" | "assistant" | "settings";
+
+interface Toast {
+  id: number;
+  message: string;
+  kind: "ok" | "error";
+}
 
 interface ShellState {
   view: ViewId;
@@ -15,6 +22,10 @@ interface ShellState {
   setActiveSetId: (id: string | null) => void;
   t: (typeof STRINGS)["en"];
   engine: { url: string; version: string };
+  toast: (message: string, kind?: "ok" | "error") => void;
+  welcomeOpen: boolean;
+  openWelcome: () => void;
+  closeWelcome: () => void;
 }
 
 const Ctx = createContext<ShellState | null>(null);
@@ -32,6 +43,7 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
     [t.nav.overview, "overview"],
     [t.nav.imageSets, "imagesets"],
     [t.nav.workbench, "workbench"],
+    [t.nav.social, "social"],
     [t.nav.assistant, "assistant"],
     [t.nav.settings, "settings"],
   ];
@@ -75,6 +87,29 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
   );
 }
 
+function ToastHost({ toasts }: { toasts: Toast[] }) {
+  return (
+    <div aria-live="polite" style={{ position: "fixed", bottom: 18, insetInlineEnd: 18, zIndex: 60, display: "grid", gap: 8 }}>
+      {toasts.map((t) => (
+        <div
+          key={t.id}
+          className="lens-toast"
+          role="status"
+          style={{
+            background: "var(--surface)", color: "var(--text)",
+            border: "1px solid var(--border)",
+            borderInlineStart: `4px solid ${t.kind === "error" ? "var(--danger)" : "var(--ok)"}`,
+            borderRadius: 10, padding: "10px 14px", fontSize: 13, maxWidth: 380,
+            boxShadow: "0 8px 24px rgba(0,0,0,.18)",
+          }}
+        >
+          {t.message}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function ShellProvider({ children }: { children: React.ReactNode }) {
   const [view, setView] = useState<ViewId>("overview");
   const [lang, setLang] = useState<Lang>(() =>
@@ -84,6 +119,18 @@ export function ShellProvider({ children }: { children: React.ReactNode }) {
     (window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light"));
   const [activeSetId, setActiveSetId] = useState<string | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  // The welcome guide shows once per major version (v2 = this UX rebuild);
+  // replayable from Settings at any time.
+  const [welcomeOpen, setWelcomeOpen] = useState(
+    () => localStorage.getItem("lens.welcome.v2.done") !== "1"
+  );
+
+  const toast = (message: string, kind: "ok" | "error" = "ok") => {
+    const id = Date.now() + Math.random();
+    setToasts((ts) => [...ts, { id, message, kind }]);
+    window.setTimeout(() => setToasts((ts) => ts.filter((t) => t.id !== id)), 4000);
+  };
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
@@ -112,15 +159,24 @@ export function ShellProvider({ children }: { children: React.ReactNode }) {
     () => ({
       view, setView, lang, setLang, theme, setTheme, activeSetId, setActiveSetId,
       t: STRINGS[lang],
-      engine: { url: ENGINE_URL, version: LENS_VERSION },
+      engine: { url: engineUrl(), version: LENS_VERSION },
+      toast,
+      welcomeOpen,
+      openWelcome: () => setWelcomeOpen(true),
+      closeWelcome: () => {
+        setWelcomeOpen(false);
+        localStorage.setItem("lens.welcome.v2.done", "1");
+      },
     }),
-    [view, lang, theme, activeSetId]
+    [view, lang, theme, activeSetId, welcomeOpen, toasts.length]
   );
 
   return (
     <Ctx.Provider value={value}>
       {children}
       {paletteOpen && <CommandPalette onClose={() => setPaletteOpen(false)} />}
+      {welcomeOpen && <WelcomeFlow />}
+      <ToastHost toasts={toasts} />
     </Ctx.Provider>
   );
 }

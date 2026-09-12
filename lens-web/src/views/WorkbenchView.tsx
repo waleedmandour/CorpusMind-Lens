@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useShell } from "../shell";
-import { api } from "../lib/api";
+import { api, batteryExportUrl } from "../lib/api";
+import { ExportButtons } from "../components/ui";
 
 type Tab = "overview" | "set" | "measures" | "analysis";
 const DIMS = ["visual_morphology", "attentional_framing", "shot_scale", "path_transition",
@@ -215,7 +216,15 @@ export function WorkbenchView() {
               </div>
               {battery && (
                 <>
-                  <h3>{t.workbench.frequency}</h3>
+                  <h3 style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+                    <span>{t.workbench.frequency}</span>
+                    <ExportButtons
+                      build={(fmt) => ({
+                        url: batteryExportUrl(activeSetId, "frequency", fmt, { dim }),
+                        filename: `lens-battery-frequency-${activeSetId}.${fmt}`,
+                      })}
+                    />
+                  </h3>
                   <table className="data">
                     <thead><tr><th>category</th><th>count</th><th>%</th></tr></thead>
                     <tbody>
@@ -224,12 +233,28 @@ export function WorkbenchView() {
                       ))}
                     </tbody>
                   </table>
-                  <h3 style={{ marginTop: 14 }}>{t.workbench.diversity}</h3>
+                  <h3 style={{ marginTop: 14, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+                    <span>{t.workbench.diversity}</span>
+                    <ExportButtons
+                      build={(fmt) => ({
+                        url: batteryExportUrl(activeSetId, "diversity", fmt, { dim }),
+                        filename: `lens-battery-diversity-${activeSetId}.${fmt}`,
+                      })}
+                    />
+                  </h3>
                   <p className="evidence">
                     TTR {battery.diversity?.ttr} · Guiraud R {battery.diversity?.guiraud_r} ·
                     MATTR {battery.diversity?.mattr} · STTR {battery.diversity?.sttr}
                   </p>
-                  <h3 style={{ marginTop: 14 }}>{t.workbench.ngrams}</h3>
+                  <h3 style={{ marginTop: 14, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+                    <span>{t.workbench.ngrams}</span>
+                    <ExportButtons
+                      build={(fmt) => ({
+                        url: batteryExportUrl(activeSetId, "ngrams", fmt, { dim, min_count: 1 }),
+                        filename: `lens-battery-ngrams-${activeSetId}.${fmt}`,
+                      })}
+                    />
+                  </h3>
                   <table className="data">
                     <tbody>
                       {(battery.ngrams?.grams ?? []).map((g: any, i: number) => (
@@ -237,7 +262,15 @@ export function WorkbenchView() {
                       ))}
                     </tbody>
                   </table>
-                  <h3 style={{ marginTop: 14 }}>{t.workbench.dispersion}</h3>
+                  <h3 style={{ marginTop: 14, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+                    <span>{t.workbench.dispersion}</span>
+                    <ExportButtons
+                      build={(fmt) => ({
+                        url: batteryExportUrl(activeSetId, "dispersion", fmt, { dim }),
+                        filename: `lens-battery-dispersion-${activeSetId}.${fmt}`,
+                      })}
+                    />
+                  </h3>
                   <table className="data">
                     <thead><tr><th>category</th><th>Juilland's D</th><th>Gries' DP</th><th>bins</th></tr></thead>
                     <tbody>

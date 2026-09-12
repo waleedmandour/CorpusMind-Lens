@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any
 
 from ..logging import get_logger
-from .models import Image, ImageSet, Project
+from .models import Image, ImageSet, Post, Project, SocialSource
 
 log = get_logger(__name__)
 
@@ -62,6 +62,39 @@ CREATE TABLE IF NOT EXISTS images (
 CREATE INDEX IF NOT EXISTS idx_sets_project ON image_sets(project_id);
 CREATE INDEX IF NOT EXISTS idx_images_set ON images(image_set_id);
 CREATE INDEX IF NOT EXISTS idx_images_created ON images(image_set_id, created_at);
+CREATE TABLE IF NOT EXISTS posts (
+    id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    platform TEXT NOT NULL DEFAULT 'generic',
+    external_id TEXT DEFAULT '',
+    author TEXT DEFAULT '',
+    text TEXT DEFAULT '',
+    language TEXT DEFAULT '',
+    created_at TEXT DEFAULT '',
+    likes INTEGER DEFAULT 0,
+    comments INTEGER DEFAULT 0,
+    shares INTEGER DEFAULT 0,
+    source TEXT DEFAULT 'import',
+    source_ref TEXT DEFAULT '',
+    meta_json TEXT DEFAULT '{}',
+    ingested_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS social_sources (
+    id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    platform TEXT NOT NULL,
+    kind TEXT NOT NULL DEFAULT 'import',
+    label TEXT DEFAULT '',
+    details_json TEXT DEFAULT '{}',
+    attested INTEGER DEFAULT 0,
+    anonymized INTEGER DEFAULT 0,
+    post_count INTEGER DEFAULT 0,
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_posts_project ON posts(project_id);
+CREATE INDEX IF NOT EXISTS idx_posts_platform ON posts(project_id, platform);
+CREATE INDEX IF NOT EXISTS idx_posts_time ON posts(project_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_sources_project ON social_sources(project_id);
 """
 
 
@@ -247,6 +280,101 @@ class Store:
                 "SELECT COUNT(*) AS n FROM images WHERE image_set_id=?", (image_set_id,)
             ).fetchone()
         return int(r["n"])
+
+    # -- Posts (Social tab, v0.2) --------------------------------------------
+    def add_post(self, post: Post) -> Post:
+        with self._tx() as c:
+            c.execute(
+                "INSERT OR REPLACE INTO posts VALUES (:id,:project_id,:platform,:external_id,"
+                ":author,:text,:language,:created_at,:likes,:comments,:shares,:source,"
+                ":source_ref,:meta_json,:ingested_at)",
+                post.to_row(),
+            )
+        return post
+
+    def add_posts(self, posts: list[Post]) -> int:
+        if not posts:
+            return 0
+        with self._tx() as c:
+            c.executemany(
+                "INSERT OR REPLACE INTO posts VALUES (:id,:project_id,:platform,:external_id,"
+                ":author,:text,:language,:created_at,:likes,:comments,:shares,:source,"
+                ":source_ref,:meta_json,:ingested_at)",
+                [p.to_row() for p in posts],
+            )
+        return len(posts)
+
+    def list_posts(
+        self,
+        project_id: str,
+        platform: str | None = None,
+        limit: int = 0,
+        offset: int = 0,
+    ) -> list[Post]:
+        q = "SELECT * FROM posts WHERE project_id=?"
+        args: list[Any] = [project_id]
+        if platform and platform != "all":
+            q += " AND platform=?"
+            args.append(platform)
+        # Chronological reading order (§7); ingested time breaks ties.
+        q += " ORDER BY CASE WHEN created_at='' THEN 1 ELSE 0 END, created_at ASC, ingested_at ASC, id ASC"
+        if limit and limit > 0:
+            q += " LIMIT ? OFFSET ?"
+            args.extend([int(limit), int(offset)])
+        with self._lock:
+            rows = self._conn.execute(q, args).fetchall()
+        return [Post.from_row(self._row_to_dict(r)) for r in rows]
+
+    def count_posts(self, project_id: str, platform: str | None = None) -> int:
+        q = "SELECT COUNT(*) AS n FROM posts WHERE project_id=?"
+        args: list[Any] = [project_id]
+        if platform and platform != "all":
+            q += " AND platform=?"
+            args.append(platform)
+        with self._lock:
+            r = self._conn.execute(q, args).fetchone()
+        return int(r["n"])
+
+    def delete_posts(self, project_id: str, platform: str | None = None) -> int:
+        q = "DELETE FROM posts WHERE project_id=?"
+        args: list[Any] = [project_id]
+        if platform and platform != "all":
+            q += " AND platform=?"
+            args.append(platform)
+        with self._tx() as c:
+            cur = c.execute(q, args)
+        return cur.rowcount
+
+    def post_platform_counts(self, project_id: str) -> dict[str, int]:
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT platform, COUNT(*) AS n FROM posts WHERE project_id=? GROUP BY platform",
+                (project_id,),
+            ).fetchall()
+        return {r["platform"]: int(r["n"]) for r in rows}
+
+    # -- Social sources (provenance / ethics layer) ---------------------------
+    def add_social_source(self, src: SocialSource) -> SocialSource:
+        with self._tx() as c:
+            c.execute(
+                "INSERT INTO social_sources VALUES (:id,:project_id,:platform,:kind,:label,"
+                ":details_json,:attested,:anonymized,:post_count,:created_at)",
+                src.to_row(),
+            )
+        return src
+
+    def list_social_sources(self, project_id: str) -> list[SocialSource]:
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT * FROM social_sources WHERE project_id=? ORDER BY created_at",
+                (project_id,),
+            ).fetchall()
+        return [SocialSource.from_row(self._row_to_dict(r)) for r in rows]
+
+    def delete_social_source(self, source_id: str) -> bool:
+        with self._tx() as c:
+            cur = c.execute("DELETE FROM social_sources WHERE id=?", (source_id,))
+        return cur.rowcount > 0
 
 
 def _now_iso() -> str:

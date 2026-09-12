@@ -231,7 +231,8 @@ function AiBackendCard({ t }: { t: any }) {
 }
 
 export function SettingsView() {
-  const { t, theme, setTheme } = useShell();
+  const shellCtx = useShell();
+  const { t, theme, setTheme } = shellCtx;
   const [settings, setSettings] = useState<any>(null);
   const [ethics, setEthics] = useState<any>(null);
   const [providers, setProviders] = useState<any>(null);
@@ -317,6 +318,9 @@ export function SettingsView() {
             {theme === "dark" ? "☀ light" : "☾ dark"}
           </button>
           <span className="chip">{t.settings.language}: EN / العربية (RTL mirror)</span>
+          <button className="btn secondary" onClick={shellCtx.openWelcome}>
+            {t.settings.replayWelcome}
+          </button>
         </div>
       </div>
 

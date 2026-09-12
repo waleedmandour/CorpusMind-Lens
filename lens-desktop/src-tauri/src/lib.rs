@@ -62,9 +62,13 @@ fn engine_alive_on(port: u16) -> bool {
     !port_in_use(port)
 }
 
+/// Candidate window. Tauri's CSP lists exactly these ports, so the sidecar
+/// never lands on a port the webview is forbidden to call (v0.2.0 lesson).
+const PORT_WINDOW: u16 = 5;
+
 fn pick_port() -> u16 {
     let mut port = PARENT_ENGINE_PORT;
-    while engine_alive_on(port) && port < PARENT_ENGINE_PORT + 20 {
+    while engine_alive_on(port) && port < PARENT_ENGINE_PORT + PORT_WINDOW {
         info!(
             "port {} busy (possible CorpusMind Text engine or stale engine) — trying next",
             port
@@ -148,14 +152,31 @@ fn strip_quarantine(_path: &std::path::Path) {}
 
 // ─── Health polling ─────────────────────────────────────────────────────
 
+/// Minimal HTTP GET over a raw TcpStream. Previously this shelled out to
+/// `curl`, which silently never succeeded on machines without curl on PATH
+/// and left the 60-second health budget burning for nothing.
+fn http_ok(port: u16, path: &str) -> bool {
+    use std::io::{Read, Write};
+    let addr = format!("{ENGINE_HOST}:{port}");
+    let Ok(mut stream) = std::net::TcpStream::connect(&addr) else {
+        return false;
+    };
+    let _ = stream.set_read_timeout(Some(Duration::from_secs(2)));
+    let req = format!("GET {path} HTTP/1.1\r\nHost: {ENGINE_HOST}:{port}\r\nConnection: close\r\n\r\n");
+    if stream.write_all(req.as_bytes()).is_err() {
+        return false;
+    }
+    let mut buf = [0u8; 128];
+    let n = stream.read(&mut buf).unwrap_or(0);
+    let head = String::from_utf8_lossy(&buf[..n]);
+    head.starts_with("HTTP/1.") && (head.contains(" 200") || head.contains(" 204"))
+}
+
 fn wait_for_health(port: u16, timeout: Duration) -> bool {
     let start = Instant::now();
-    let url = format!("http://{ENGINE_HOST}:{port}/api/v1/health");
     while start.elapsed() < timeout {
-        if let Ok(out) = Command::new("curl").args(["-sf", "--max-time", "2", &url]).output() {
-            if out.status.success() {
-                return true;
-            }
+        if http_ok(port, "/api/v1/health") {
+            return true;
         }
         std::thread::sleep(HEALTH_POLL_INTERVAL);
     }
@@ -171,15 +192,11 @@ fn engine_status(state: State<EngineManager>) -> serde_json::Value {
     serde_json::json!({ "running": running, "port": port })
 }
 
-#[tauri::command]
-fn start_engine(
-    app: tauri::AppHandle,
-    state: State<EngineManager>,
-) -> Result<serde_json::Value, String> {
-    let port = pick_port();
+/// Shared spawn logic for both the startup hook and the manual command.
+fn spawn_engine(app: &tauri::AppHandle, state: &EngineManager, port: u16) -> Result<serde_json::Value, String> {
     *state.port.lock().unwrap() = port;
 
-    let mut cmd = if let Some(bin) = find_engine_binary(&app) {
+    let mut cmd = if let Some(bin) = find_engine_binary(app) {
         strip_quarantine(&bin);
         let mut c = Command::new(&bin);
         c.current_dir(bin.parent().map(|p| p.to_path_buf()).unwrap_or_default());
@@ -223,16 +240,24 @@ fn start_engine(
     *state.child.lock().unwrap() = Some(child);
 
     // Poll on a detached thread so the UI thread never blocks.
-    let port2 = port;
     std::thread::spawn(move || {
-        if wait_for_health(port2, HEALTH_TIMEOUT) {
-            info!("lens-engine healthy on port {port2}");
+        if wait_for_health(port, HEALTH_TIMEOUT) {
+            info!("lens-engine healthy on port {port}");
         } else {
-            error!("lens-engine did not become healthy on port {port2} within {:?}", HEALTH_TIMEOUT);
+            error!("lens-engine did not become healthy on port {port} within {:?}", HEALTH_TIMEOUT);
         }
     });
 
     Ok(serde_json::json!({ "started": true, "port": port }))
+}
+
+#[tauri::command]
+fn start_engine(
+    app: tauri::AppHandle,
+    state: State<EngineManager>,
+) -> Result<serde_json::Value, String> {
+    let port = pick_port();
+    spawn_engine(&app, &state, port)
 }
 
 fn data_dir() -> String {
@@ -273,6 +298,23 @@ fn main() {
             ai_backend::ai_install_ollama,
             ai_backend::machine_specs_command,
         ])
+        .setup(|app| {
+            // AUTO-START the sidecar (v0.2.0 rebuild): the released v0.2.0
+            // never started its bundled engine at all — no setup hook and no
+            // frontend caller — so the packaged app ran permanently offline.
+            // Spawn on a detached thread; the window must not wait on PyInstaller
+            // first-run scans (Windows Defender) which can take tens of seconds.
+            let handle = app.handle().clone();
+            std::thread::spawn(move || {
+                let state = handle.state::<EngineManager>();
+                let port = pick_port();
+                match spawn_engine(&handle, &state, port) {
+                    Ok(_) => info!("engine auto-start accepted on port {port}"),
+                    Err(e) => error!("engine auto-start failed: {e}"),
+                }
+            });
+            Ok(())
+        })
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::Destroyed = event {
                 // nothing extra — cleanup happens in RunEvent::Exit below

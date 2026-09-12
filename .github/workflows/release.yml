@@ -76,6 +76,14 @@ jobs:
             --hidden-import lens_engine.api.assistant \
             --hidden-import lens_engine.api.companion \
             --hidden-import lens_engine.api.settings_router \
+            --hidden-import lens_engine.api.social \
+            --hidden-import lens_engine.social \
+            --hidden-import lens_engine.social.textutils \
+            --hidden-import lens_engine.social.ethics \
+            --hidden-import lens_engine.social.parsers \
+            --hidden-import lens_engine.social.connectors \
+            --hidden-import lens_engine.social.social_stats \
+            --hidden-import lens_engine.export.tabular \
             lens_engine/__main__.py
       - uses: actions/upload-artifact@v4
         with:

@@ -3,9 +3,18 @@
 declare const __ENGINE_BASE_URL__: string;
 declare const __LENS_VERSION__: string;
 
-const BASE = typeof __ENGINE_BASE_URL__ !== "undefined" ? __ENGINE_BASE_URL__ : "http://127.0.0.1:8765";
-export const ENGINE_URL = BASE;
+let BASE =
+  typeof __ENGINE_BASE_URL__ !== "undefined" ? __ENGINE_BASE_URL__ : "http://127.0.0.1:8765";
+export function engineUrl(): string {
+  return BASE;
+}
 export const LENS_VERSION = typeof __LENS_VERSION__ !== "undefined" ? __LENS_VERSION__ : "0.1.0";
+
+/** The desktop shell may have started the engine on a fallback port
+ * (8765 busy: a Companion engine or a stale process). Call once at boot. */
+export function setEngineBase(url: string): void {
+  BASE = url.replace(/\/$/, "");
+}
 
 export class LensApiError extends Error {
   constructor(public status: number, message: string) {
@@ -126,6 +135,34 @@ export const api = {
     req<any>(`/images/${imageId}/ocr/vision${model ? `?model=${encodeURIComponent(model)}` : ""}`,
       { method: "POST" }),
 
+  // ── Social tab (v0.2): imports, connectors, analyses ────────────────────
+  socialImport: async (projectId: string, file: File, source: string, options: Record<string, unknown>) => {
+    const form = new FormData();
+    form.append("file", file);
+    form.append("source", source);
+    form.append("options", JSON.stringify(options));
+    const r = await fetch(`${BASE}/api/v1/projects/${projectId}/social/import`, { method: "POST", body: form });
+    if (!r.ok) {
+      let detail = r.statusText;
+      try { detail = (await r.json()).detail ?? detail; } catch { /* keep */ }
+      throw new LensApiError(r.status, typeof detail === "string" ? detail : JSON.stringify(detail));
+    }
+    return r.json();
+  },
+  socialFetch: (projectId: string, body: Record<string, unknown>) =>
+    req<any>(`/projects/${projectId}/social/fetch`, { method: "POST", body: JSON.stringify(body) }),
+  listPosts: (projectId: string, platform = "all", limit = 200, offset = 0) =>
+    req<any>(`/projects/${projectId}/posts?platform=${encodeURIComponent(platform)}&limit=${limit}&offset=${offset}`),
+  deletePosts: (projectId: string, platform = "all") =>
+    req<any>(`/projects/${projectId}/posts?platform=${encodeURIComponent(platform)}`, { method: "DELETE" }),
+  socialSummary: (projectId: string) => req<any>(`/projects/${projectId}/social/summary`),
+  socialAnalyse: (projectId: string, analysis: string, params: Record<string, string | number> = {}) => {
+    const qs = new URLSearchParams(
+      Object.entries(params).map(([k, v]) => [k, String(v)])
+    ).toString();
+    return req<any>(`/projects/${projectId}/social/${analysis}${qs ? `?${qs}` : ""}`);
+  },
+
   /** Pull a model with live NDJSON progress (status/completed/total). */
   aiPull: async (model: string, onLine: (e: any) => void): Promise<void> => {
     const r = await fetch(`${BASE}/api/v1/ai/local/pull`, {
@@ -163,6 +200,8 @@ export function isDesktopShell(): boolean {
 }
 
 export const shell = {
+  engineStatus: () => (window as any).__TAURI__?.core.invoke("engine_status"),
+  startEngine: () => (window as any).__TAURI__?.core.invoke("start_engine"),
   aiBackendStatus: () => (window as any).__TAURI__?.core.invoke("ai_backend_status"),
   aiBackendStart: () => (window as any).__TAURI__?.core.invoke("ai_backend_start"),
   aiBackendRestart: () => (window as any).__TAURI__?.core.invoke("ai_backend_restart"),
@@ -172,3 +211,50 @@ export const shell = {
   onInstallProgress: (cb: (e: any) => void): Promise<() => void> | undefined =>
     (window as any).__TAURI__?.event?.listen("ai-install://progress", (ev: any) => cb(ev.payload)),
 };
+
+/** Adopt the port the desktop shell actually started the engine on. */
+export async function discoverEnginePort(): Promise<void> {
+  if (!isDesktopShell()) return;
+  try {
+    const st = await shell.engineStatus();
+    if (st?.port && st.port !== 8765) setEngineBase(`http://127.0.0.1:${st.port}`);
+  } catch {
+    /* browser PWA or shell busy: keep the default base */
+  }
+}
+
+/** Download an engine-generated file (CSV/XML/...) in browser and desktop.
+ * Object URLs work in both; direct cross-origin anchors do not. */
+export async function downloadEngineFile(url: string, filename: string): Promise<void> {
+  const r = await fetch(url);
+  if (!r.ok) throw new LensApiError(r.status, "export failed");
+  const blob = await r.blob();
+  const obj = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = obj;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(obj), 4000);
+}
+
+export function socialExportUrl(
+  projectId: string,
+  what: string,
+  format: string,
+  params: Record<string, string | number> = {}
+): string {
+  const qs = new URLSearchParams({ format, ...Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)])) });
+  return `${BASE}/api/v1/projects/${projectId}/social-export/${what}?${qs.toString()}`;
+}
+
+export function batteryExportUrl(
+  setId: string,
+  kind: string,
+  format: string,
+  params: Record<string, string | number> = {}
+): string {
+  const qs = new URLSearchParams({ format, ...Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)])) });
+  return `${BASE}/api/v1/imagesets/${setId}/battery-export/${kind}?${qs.toString()}`;
+}

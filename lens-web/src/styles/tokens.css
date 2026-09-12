@@ -305,3 +305,75 @@ table.data th {
   background: var(--lens-accent);
   transition: width 0.3s ease;
 }
+
+/* ---- Sidebar (v0.2 professional layout: icons + labels + footer) ---- */
+
+.lens-sidebar-pro button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.lens-sidebar-pro button svg {
+  flex: 0 0 auto;
+  opacity: 0.85;
+}
+
+.lens-sidebar-pro button.active svg {
+  opacity: 1;
+}
+
+.lens-sidebar-foot {
+  margin-top: auto;
+  padding: 10px 6px 2px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.lens-link {
+  background: transparent;
+  border: none;
+  color: var(--lens-accent);
+  font-size: 12px;
+  padding: 2px 0;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ---- Toasts (v0.2 feedback) ---- */
+
+@keyframes lens-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.lens-toast {
+  animation: lens-toast-in 0.18s ease;
+}
+
+/* ---- Welcome overlay (v0.2 three-page guide) ---- */
+
+.lens-welcome h2 {
+  color: var(--text);
+}
+
+.lens-welcome ul {
+  color: var(--text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lens-toast,
+  .progress > div {
+    animation: none;
+    transition: none;
+  }
+}

@@ -156,3 +156,130 @@ class Image:
             created_at=r["created_at"],
             updated_at=r["updated_at"],
         )
+
+
+@dataclass(slots=True)
+class Post:
+    """A social media unit of analysis (v0.2 Social tab).
+
+    One row per post/comment/video description. Flexible platform detail
+    (hashtags, mentions, urls, emoji, attachment media) lives in ``meta``
+    JSON, the same zero-migration pattern as ``Image.meta``. ``source`` is
+    ``import`` (user-owned archive/export, no network) or ``connector``
+    (official free-tier API, BYO credentials). ``created_at`` is the
+    platform timestamp when available and drives the chronological reading
+    order for sequence statistics.
+    """
+
+    id: str
+    project_id: str
+    platform: str  # x | instagram | facebook | tiktok | reddit | youtube | mastodon | generic
+    external_id: str = ""
+    author: str = ""
+    text: str = ""
+    language: str = ""
+    created_at: str = ""
+    likes: int = 0
+    comments: int = 0
+    shares: int = 0
+    source: str = "import"  # import | connector
+    source_ref: str = ""    # archive filename or API endpoint
+    meta: dict[str, Any] = field(default_factory=dict)
+    ingested_at: str = field(default_factory=_now)
+
+    def to_row(self) -> dict[str, Any]:
+        import json
+
+        return {
+            "id": self.id,
+            "project_id": self.project_id,
+            "platform": self.platform,
+            "external_id": self.external_id,
+            "author": self.author,
+            "text": self.text,
+            "language": self.language,
+            "created_at": self.created_at,
+            "likes": self.likes,
+            "comments": self.comments,
+            "shares": self.shares,
+            "source": self.source,
+            "source_ref": self.source_ref,
+            "meta_json": json.dumps(self.meta, ensure_ascii=False),
+            "ingested_at": self.ingested_at,
+        }
+
+    @classmethod
+    def from_row(cls, r: dict[str, Any]) -> "Post":
+        import json
+
+        return cls(
+            id=r["id"],
+            project_id=r["project_id"],
+            platform=r["platform"],
+            external_id=r["external_id"],
+            author=r["author"],
+            text=r["text"],
+            language=r["language"],
+            created_at=r["created_at"],
+            likes=int(r["likes"] or 0),
+            comments=int(r["comments"] or 0),
+            shares=int(r["shares"] or 0),
+            source=r["source"],
+            source_ref=r["source_ref"],
+            meta=json.loads(r["meta_json"] or "{}"),
+            ingested_at=r["ingested_at"],
+        )
+
+
+@dataclass(slots=True)
+class SocialSource:
+    """Provenance record for one social import or connector fetch (ethics layer).
+
+    Stores what was collected, from where, under which attestation, and with
+    which anonymisation options applied. This is what makes an exported
+    social corpus defensible in a methods section.
+    """
+
+    id: str
+    project_id: str
+    platform: str
+    kind: str  # import | connector
+    label: str
+    details: dict[str, Any] = field(default_factory=dict)
+    attested: bool = False
+    anonymized: bool = False
+    post_count: int = 0
+    created_at: str = field(default_factory=_now)
+
+    def to_row(self) -> dict[str, Any]:
+        import json
+
+        return {
+            "id": self.id,
+            "project_id": self.project_id,
+            "platform": self.platform,
+            "kind": self.kind,
+            "label": self.label,
+            "details_json": json.dumps(self.details, ensure_ascii=False),
+            "attested": 1 if self.attested else 0,
+            "anonymized": 1 if self.anonymized else 0,
+            "post_count": self.post_count,
+            "created_at": self.created_at,
+        }
+
+    @classmethod
+    def from_row(cls, r: dict[str, Any]) -> "SocialSource":
+        import json
+
+        return cls(
+            id=r["id"],
+            project_id=r["project_id"],
+            platform=r["platform"],
+            kind=r["kind"],
+            label=r["label"],
+            details=json.loads(r["details_json"] or "{}"),
+            attested=bool(r["attested"]),
+            anonymized=bool(r["anonymized"]),
+            post_count=int(r["post_count"] or 0),
+            created_at=r["created_at"],
+        )

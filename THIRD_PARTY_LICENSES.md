@@ -13,6 +13,8 @@ This file is written fresh for Lens (the parent product's dependency set differs
 | Pydantic | MIT | Schemas / validation |
 | httpx | BSD-3-Clause | Provider + Companion HTTP client |
 | Pillow | HPND (MIT-CMU) | Image decode/encode, EXIF |
+| openpyxl | MIT | xlsx export (base dep since v0.1.0) |
+| et_xmlfile | MIT | openpyxl runtime dependency |
 | NumPy | BSD-3-Clause | Colour/composition/saliency computation |
 | pytesseract | Apache-2.0 (GPL-3.0 for the Tesseract binary itself, see below) | OCR wrapper |
 | PyYAML | MIT | Framework template loading |

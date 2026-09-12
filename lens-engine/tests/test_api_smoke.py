@@ -229,3 +229,22 @@ def test_corrupt_body_rejected_not_500(app_client):
     assert len(body["accepted"]) == 1
     assert len(body["rejected"]) == 1
     assert "undecodable image" in body["rejected"][0]["error"]
+
+
+def test_xlsx_export_regression(app_client):
+    """xlsx export must work with base deps alone (v0.1.0 shipped binary
+    missed openpyxl — lazy import, undeclared dep → 500 in the frozen
+    sidecar while json/csv/tsv worked)."""
+    c = app_client
+    p = c.post("/api/v1/projects", json={"name": "P-xlsx"}).json()
+    s = c.post("/api/v1/imagesets", json={"project_id": p["id"], "name": "xlsx"}).json()
+    r = c.post(f"/api/v1/imagesets/{s['id']}/images", files=[
+        ("files", ("a.png", make_png(), "image/png")),
+    ])
+    assert r.status_code == 202 and len(r.json()["accepted"]) == 1
+    for fmt in ("json", "csv", "tsv", "xlsx"):
+        resp = c.get(f"/api/v1/imagesets/{s['id']}/export?format={fmt}")
+        assert resp.status_code == 200, f"{fmt} export failed: {resp.status_code}"
+        assert len(resp.content) > 0
+    x = c.get(f"/api/v1/imagesets/{s['id']}/export?format=xlsx")
+    assert x.content[:4] == b"PK\x03\x04"  # real zip container, not an error page

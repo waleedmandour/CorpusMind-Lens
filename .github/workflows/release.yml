@@ -49,6 +49,7 @@ jobs:
           if [ "$RUNNER_OS" = "Windows" ]; then SEP=";"; fi
           pip install pyinstaller .
           pyinstaller --onefile --name lens-engine \
+            --collect-all openpyxl --collect-all et_xmlfile \
             --add-data "../reference-data/frameworks${SEP}reference-data/frameworks" \
             --hidden-import uvicorn.loops.asyncio \
             --hidden-import uvicorn.protocols.http.h11_impl \

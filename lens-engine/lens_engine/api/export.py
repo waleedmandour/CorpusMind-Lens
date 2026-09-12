@@ -100,7 +100,7 @@ def _render(rows: list[dict], format: str, name: str) -> Response:
         return Response(content=buf.getvalue(), media_type=f"text/{fmt}",
                         headers={"Content-Disposition": f'attachment; filename="{name}.{fmt}"'})
     if fmt == "xlsx":
-        from openpyxl import Workbook  # optional dependency, declared in [all]
+        from openpyxl import Workbook  # base dependency since v0.1.0 (xlsx export is a first-class feature)
 
         wb = Workbook()
         ws = wb.active

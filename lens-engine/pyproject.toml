@@ -24,11 +24,12 @@ dependencies = [
     "numpy>=1.26",
     "PyYAML>=6.0",
     "python-multipart>=0.0.9",
+    "openpyxl>=3.1",
+    "cryptography>=42.0",
 ]
 
 [project.optional-dependencies]
 ocr = ["pytesseract>=0.3.10"]
-encryption = ["cryptography>=42.0"]
 models = [
     "torch>=2.2",
     "transformers>=4.40",

@@ -59,7 +59,7 @@ CorpusMind-Lens/
 
 ```bash
 cd lens-engine
-pip install -e ".[all]"
+pip install -e ".[ocr]"
 uvicorn lens_engine.main:app --port 8765
 # Health check: http://127.0.0.1:8765/api/v1/health
 ```

@@ -1,0 +1,523 @@
+{
+  "images": {
+    "person.jpg": {
+      "primary": "person",
+      "boxes": [
+        {
+          "category": "person",
+          "bbox": [
+            0.15,
+            0.33,
+            0.57,
+            0.67
+          ]
+        }
+      ],
+      "scene": null,
+      "source": {
+        "title": "Reading (undated)",
+        "url": "https://www.flickr.com/photos/47201412@N02/8371758905",
+        "image_url": "https://live.staticflickr.com/8220/8371758905_b01dd14ea1_b.jpg",
+        "license": "CC BY 2.0",
+        "creator": "pellethepoet",
+        "provider": "flickr"
+      }
+    },
+    "crowd.jpg": {
+      "primary": "crowd",
+      "boxes": [
+        {
+          "category": "crowd",
+          "bbox": [
+            0.0,
+            0.5,
+            1.0,
+            0.5
+          ]
+        },
+        {
+          "category": "building",
+          "bbox": [
+            0.55,
+            0.0,
+            0.45,
+            0.38
+          ]
+        },
+        {
+          "category": "building",
+          "bbox": [
+            0.0,
+            0.02,
+            0.24,
+            0.55
+          ]
+        }
+      ],
+      "scene": null,
+      "source": {
+        "title": "A Crowd",
+        "url": "https://www.flickr.com/photos/68089229@N06/8278210551",
+        "image_url": "https://live.staticflickr.com/8479/8278210551_371729607c_b.jpg",
+        "license": "CC BY 2.0",
+        "creator": "oatsy40",
+        "provider": "flickr"
+      }
+    },
+    "animal.jpg": {
+      "primary": "animal",
+      "boxes": [
+        {
+          "category": "person",
+          "bbox": [
+            0.6,
+            0.55,
+            0.12,
+            0.19
+          ]
+        },
+        {
+          "category": "person",
+          "bbox": [
+            0.24,
+            0.65,
+            0.1,
+            0.15
+          ]
+        },
+        {
+          "category": "person",
+          "bbox": [
+            0.4,
+            0.03,
+            0.35,
+            0.52
+          ],
+          "note": "depicted person (mural face)"
+        },
+        {
+          "category": "vehicle",
+          "bbox": [
+            0.54,
+            0.62,
+            0.23,
+            0.16
+          ],
+          "note": "bicycle"
+        }
+      ],
+      "scene": null,
+      "source": {
+        "title": "Manhattan Hot Dog Stand from the High Line",
+        "url": "https://www.flickr.com/photos/30201239@N00/6077957519",
+        "image_url": "https://live.staticflickr.com/6077/6077957519_633b2a51df_b.jpg",
+        "license": "CC BY-SA 2.0",
+        "creator": "joiseyshowaa",
+        "provider": "flickr"
+      }
+    },
+    "vehicle.jpg": {
+      "primary": "vehicle",
+      "boxes": [
+        {
+          "category": "vehicle",
+          "bbox": [
+            0.06,
+            0.17,
+            0.84,
+            0.66
+          ]
+        },
+        {
+          "category": "vehicle",
+          "bbox": [
+            0.12,
+            0.18,
+            0.34,
+            0.19
+          ]
+        },
+        {
+          "category": "vehicle",
+          "bbox": [
+            0.92,
+            0.24,
+            0.08,
+            0.2
+          ]
+        },
+        {
+          "category": "building",
+          "bbox": [
+            0.3,
+            0.0,
+            0.7,
+            0.21
+          ]
+        },
+        {
+          "category": "building",
+          "bbox": [
+            0.0,
+            0.0,
+            0.33,
+            0.36
+          ]
+        }
+      ],
+      "scene": null,
+      "source": {
+        "title": "Classic Red Car",
+        "url": "https://www.flickr.com/photos/87587434@N00/457834210",
+        "image_url": "https://live.staticflickr.com/192/457834210_05ee82006b_b.jpg",
+        "license": "CC BY-ND 2.0",
+        "creator": "Studio Amore",
+        "provider": "flickr"
+      }
+    },
+    "building.jpg": {
+      "primary": "building",
+      "boxes": [
+        {
+          "category": "building",
+          "bbox": [
+            0.25,
+            0.0,
+            0.54,
+            1.0
+          ]
+        },
+        {
+          "category": "building",
+          "bbox": [
+            0.0,
+            0.72,
+            0.22,
+            0.28
+          ]
+        },
+        {
+          "category": "building",
+          "bbox": [
+            0.8,
+            0.78,
+            0.2,
+            0.22
+          ]
+        }
+      ],
+      "scene": null,
+      "source": {
+        "title": "Cologne-cathedral-facade (Hasak)",
+        "url": "https://www.flickr.com/photos/40794167@N05/4340566845",
+        "image_url": "https://live.staticflickr.com/4018/4340566845_5355ea847c_b.jpg",
+        "license": "CC BY 2.0",
+        "creator": "Zachi Evenor",
+        "provider": "flickr"
+      }
+    },
+    "flag.jpg": {
+      "primary": "flag",
+      "boxes": [
+        {
+          "category": "flag",
+          "bbox": [
+            0.35,
+            0.29,
+            0.42,
+            0.68
+          ]
+        }
+      ],
+      "scene": null,
+      "source": {
+        "title": "American Flag",
+        "url": "https://www.flickr.com/photos/51117559@N03/6148426424",
+        "image_url": "https://live.staticflickr.com/6155/6148426424_b67185fa56_b.jpg",
+        "license": "CC BY 2.0",
+        "creator": "Brett Levin Photography",
+        "provider": "flickr"
+      }
+    },
+    "religious_symbol.jpg": {
+      "primary": "religious symbol",
+      "boxes": [
+        {
+          "category": "religious symbol",
+          "bbox": [
+            0.38,
+            0.19,
+            0.29,
+            0.25
+          ],
+          "note": "carved cross on the slab"
+        }
+      ],
+      "scene": null,
+      "source": {
+        "title": "Fowlis Wester Parish Church Cross Slab",
+        "url": "https://www.flickr.com/photos/61629383@N08/15118228742",
+        "image_url": "https://live.staticflickr.com/3906/15118228742_ba2d2e7db4_b.jpg",
+        "license": "CC BY-SA 2.0",
+        "creator": "Neillwphoto",
+        "provider": "flickr"
+      }
+    },
+    "food.jpg": {
+      "primary": "food",
+      "boxes": [
+        {
+          "category": "food",
+          "bbox": [
+            0.35,
+            0.35,
+            0.65,
+            0.4
+          ],
+          "note": "painted fruit (Mucha artwork)"
+        },
+        {
+          "category": "person",
+          "bbox": [
+            0.05,
+            0.05,
+            0.8,
+            0.95
+          ],
+          "note": "depicted person (artwork)"
+        }
+      ],
+      "scene": null,
+      "source": {
+        "title": "Grapes, pears, apples. Fruit by Alfons Mucha (1897)",
+        "url": "https://www.flickr.com/photos/97123293@N07/14988299095",
+        "image_url": "https://live.staticflickr.com/5575/14988299095_b1afafd499_b.jpg",
+        "license": "CC BY 2.0",
+        "creator": "Swallowtail Garden Seeds",
+        "provider": "flickr"
+      }
+    },
+    "product.jpg": {
+      "primary": "product",
+      "boxes": [
+        {
+          "category": "product",
+          "bbox": [
+            0.82,
+            0.02,
+            0.18,
+            0.93
+          ]
+        },
+        {
+          "category": "product",
+          "bbox": [
+            0.66,
+            0.0,
+            0.19,
+            0.9
+          ]
+        },
+        {
+          "category": "product",
+          "bbox": [
+            0.53,
+            0.0,
+            0.17,
+            0.85
+          ]
+        },
+        {
+          "category": "product",
+          "bbox": [
+            0.44,
+            0.02,
+            0.14,
+            0.78
+          ]
+        },
+        {
+          "category": "product",
+          "bbox": [
+            0.34,
+            0.05,
+            0.14,
+            0.7
+          ]
+        },
+        {
+          "category": "product",
+          "bbox": [
+            0.29,
+            0.1,
+            0.11,
+            0.62
+          ]
+        },
+        {
+          "category": "product",
+          "bbox": [
+            0.08,
+            0.15,
+            0.26,
+            0.53
+          ],
+          "note": "faded overlapping bottles, coarse box"
+        }
+      ],
+      "scene": null,
+      "source": {
+        "title": "Wine Bottles",
+        "url": "https://www.flickr.com/photos/61112853@N06/5990843715",
+        "image_url": "https://live.staticflickr.com/6014/5990843715_618d7b8902_b.jpg",
+        "license": "CC BY 2.0",
+        "creator": "Max and Dee",
+        "provider": "flickr"
+      }
+    },
+    "weapon.jpg": {
+      "primary": "weapon",
+      "boxes": [
+        {
+          "category": "weapon",
+          "bbox": [
+            0.12,
+            0.15,
+            0.62,
+            0.77
+          ],
+          "note": "self-propelled gun incl. barrel"
+        },
+        {
+          "category": "weapon",
+          "bbox": [
+            0.04,
+            0.48,
+            0.24,
+            0.3
+          ]
+        },
+        {
+          "category": "vehicle",
+          "bbox": [
+            0.12,
+            0.15,
+            0.62,
+            0.77
+          ]
+        },
+        {
+          "category": "vehicle",
+          "bbox": [
+            0.04,
+            0.48,
+            0.24,
+            0.3
+          ]
+        },
+        {
+          "category": "building",
+          "bbox": [
+            0.42,
+            0.46,
+            0.56,
+            0.16
+          ]
+        }
+      ],
+      "scene": null,
+      "source": {
+        "title": "Dedication to the Great Victory Day. Soviet Self Propelled Tank Destroer SU-100. 1944-45. \u041a\u043e \u0434\u043d\u044e \u0412\u0435\u043b\u0438\u043a\u043e\u0439 \u041f\u043e\u0431\u0435\u0434\u044b. \u0421\u043e\u0432\u0435\u0442\u0441\u043a\u0430\u044f \u0421\u0430\u043c\u043e\u0445\u043e\u0434\u043a\u0430 \u0421\u0423-100.",
+        "url": "https://www.flickr.com/photos/25554263@N04/8717630365",
+        "image_url": "https://live.staticflickr.com/7419/8717630365_77313bbfb7_b.jpg",
+        "license": "CC BY-SA 2.0",
+        "creator": "Peer.Gynt",
+        "provider": "flickr"
+      }
+    },
+    "scene_mosque.jpg": {
+      "primary": "mosque",
+      "boxes": [],
+      "scene": "mosque",
+      "source": {
+        "title": "Sheikh Zayed Grand Mosque: Minaret",
+        "url": "https://www.flickr.com/photos/84985982@N00/17339690606",
+        "image_url": "https://live.staticflickr.com/8805/17339690606_ccf5dae619_b.jpg",
+        "license": "CC BY-SA 2.0",
+        "creator": "andryn2006",
+        "provider": "flickr"
+      }
+    },
+    "scene_beach.jpg": {
+      "primary": "beach",
+      "boxes": [],
+      "scene": "beach",
+      "source": {
+        "title": "On The Beach.",
+        "url": "https://www.flickr.com/photos/88123769@N02/52378857037",
+        "image_url": "https://live.staticflickr.com/65535/52378857037_d42b80da8f_b.jpg",
+        "license": "CC PDM 1.0",
+        "creator": "Bernard Spragg",
+        "provider": "flickr"
+      }
+    },
+    "scene_supermarket.jpg": {
+      "primary": "supermarket",
+      "boxes": [],
+      "scene": "supermarket",
+      "source": {
+        "title": "Supermarket",
+        "url": "https://www.flickr.com/photos/18094879@N00/8407037563",
+        "image_url": "https://live.staticflickr.com/8497/8407037563_11bbebbee2_b.jpg",
+        "license": "CC BY-ND 2.0",
+        "creator": "Danny Nicholson",
+        "provider": "flickr"
+      }
+    },
+    "scene_stadium.jpg": {
+      "primary": "stadium",
+      "boxes": [],
+      "scene": "stadium",
+      "source": {
+        "title": "Millburn - High School Football Stadium",
+        "url": "https://www.flickr.com/photos/24736216@N07/4638911351",
+        "image_url": "https://live.staticflickr.com/4063/4638911351_e06ca46953_b.jpg",
+        "license": "CC BY-SA 2.0",
+        "creator": "roger4336",
+        "provider": "flickr"
+      }
+    },
+    "scene_office.jpg": {
+      "primary": "office",
+      "boxes": [],
+      "scene": "office",
+      "source": {
+        "title": "Office Desk Computer PC Laptop Setup",
+        "url": "https://www.flickr.com/photos/33088287@N00/16916258456",
+        "image_url": "https://live.staticflickr.com/8717/16916258456_78db1dae50_b.jpg",
+        "license": "CC BY 2.0",
+        "creator": "anantal",
+        "provider": "flickr"
+      }
+    },
+    "scene_street.jpg": {
+      "primary": "street",
+      "boxes": [],
+      "scene": "street",
+      "source": {
+        "title": "Mumbai... #cityscape, #city, #street, #traffic, #view, #ArabianSea, #sunset",
+        "url": "https://www.flickr.com/photos/29436924@N00/29507711296",
+        "image_url": "https://live.staticflickr.com/8313/29507711296_335a891bb4_b.jpg",
+        "license": "CC BY 2.0",
+        "creator": "nupurbarua",
+        "provider": "flickr"
+      }
+    }
+  },
+  "policy": {
+    "bbox_format": "[x, y, w, h] normalized 0-1 (engine Detection convention)",
+    "annotation": "single annotator (agent), visual inspection of the downloaded 1024px renders; coarse boxes by design",
+    "depicted_persons": "counted as person ground truth \u2014 consistent with the engine's consent-gate policy that treats depictions of people as people-representations",
+    "matching": "greedy by confidence, same category, IoU >= 0.5"
+  }
+}

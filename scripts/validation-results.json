@@ -1,0 +1,412 @@
+{
+  "thresholds": {
+    "0.4": {
+      "tp": 4,
+      "fp": 0,
+      "fn": 28,
+      "precision": 1.0,
+      "recall": 0.125
+    },
+    "0.25": {
+      "tp": 8,
+      "fp": 3,
+      "fn": 24,
+      "precision": 0.727,
+      "recall": 0.25
+    },
+    "0.15": {
+      "tp": 13,
+      "fp": 19,
+      "fn": 19,
+      "precision": 0.406,
+      "recall": 0.406
+    }
+  },
+  "per_category_at_default": {
+    "building": {
+      "tp": 5,
+      "fp": 7,
+      "fn": 3,
+      "precision": 0.417,
+      "recall": 0.625
+    },
+    "child": {
+      "tp": 0,
+      "fp": 1,
+      "fn": 0,
+      "precision": 0.0,
+      "recall": 0.0
+    },
+    "crowd": {
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0
+    },
+    "flag": {
+      "tp": 1,
+      "fp": 1,
+      "fn": 0,
+      "precision": 0.5,
+      "recall": 1.0
+    },
+    "food": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 1,
+      "precision": 0.0,
+      "recall": 0.0
+    },
+    "person": {
+      "tp": 3,
+      "fp": 9,
+      "fn": 2,
+      "precision": 0.25,
+      "recall": 0.6
+    },
+    "product": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 7,
+      "precision": 0.0,
+      "recall": 0.0
+    },
+    "religious symbol": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 1,
+      "precision": 0.0,
+      "recall": 0.0
+    },
+    "vehicle": {
+      "tp": 2,
+      "fp": 1,
+      "fn": 4,
+      "precision": 0.667,
+      "recall": 0.333
+    },
+    "weapon": {
+      "tp": 1,
+      "fp": 0,
+      "fn": 1,
+      "precision": 1.0,
+      "recall": 0.5
+    }
+  },
+  "latency_s": [
+    {
+      "image": "person.jpg",
+      "threshold": 0.4,
+      "s": 20.98
+    },
+    {
+      "image": "person.jpg",
+      "threshold": 0.25,
+      "s": 10.08
+    },
+    {
+      "image": "person.jpg",
+      "threshold": 0.15,
+      "s": 9.73
+    },
+    {
+      "image": "crowd.jpg",
+      "threshold": 0.4,
+      "s": 21.31
+    },
+    {
+      "image": "crowd.jpg",
+      "threshold": 0.25,
+      "s": 10.45
+    },
+    {
+      "image": "crowd.jpg",
+      "threshold": 0.15,
+      "s": 10.13
+    },
+    {
+      "image": "animal.jpg",
+      "threshold": 0.4,
+      "s": 20.89
+    },
+    {
+      "image": "animal.jpg",
+      "threshold": 0.25,
+      "s": 10.19
+    },
+    {
+      "image": "animal.jpg",
+      "threshold": 0.15,
+      "s": 10.5
+    },
+    {
+      "image": "vehicle.jpg",
+      "threshold": 0.4,
+      "s": 21.05
+    },
+    {
+      "image": "vehicle.jpg",
+      "threshold": 0.25,
+      "s": 10.18
+    },
+    {
+      "image": "vehicle.jpg",
+      "threshold": 0.15,
+      "s": 9.83
+    },
+    {
+      "image": "building.jpg",
+      "threshold": 0.4,
+      "s": 20.94
+    },
+    {
+      "image": "building.jpg",
+      "threshold": 0.25,
+      "s": 9.73
+    },
+    {
+      "image": "building.jpg",
+      "threshold": 0.15,
+      "s": 9.57
+    },
+    {
+      "image": "flag.jpg",
+      "threshold": 0.4,
+      "s": 21.05
+    },
+    {
+      "image": "flag.jpg",
+      "threshold": 0.25,
+      "s": 10.08
+    },
+    {
+      "image": "flag.jpg",
+      "threshold": 0.15,
+      "s": 10.24
+    },
+    {
+      "image": "religious_symbol.jpg",
+      "threshold": 0.4,
+      "s": 21.08
+    },
+    {
+      "image": "religious_symbol.jpg",
+      "threshold": 0.25,
+      "s": 10.01
+    },
+    {
+      "image": "religious_symbol.jpg",
+      "threshold": 0.15,
+      "s": 10.38
+    },
+    {
+      "image": "food.jpg",
+      "threshold": 0.4,
+      "s": 21.33
+    },
+    {
+      "image": "food.jpg",
+      "threshold": 0.25,
+      "s": 10.48
+    },
+    {
+      "image": "food.jpg",
+      "threshold": 0.15,
+      "s": 10.79
+    },
+    {
+      "image": "product.jpg",
+      "threshold": 0.4,
+      "s": 21.04
+    },
+    {
+      "image": "product.jpg",
+      "threshold": 0.25,
+      "s": 10.14
+    },
+    {
+      "image": "product.jpg",
+      "threshold": 0.15,
+      "s": 10.21
+    },
+    {
+      "image": "weapon.jpg",
+      "threshold": 0.4,
+      "s": 21.19
+    },
+    {
+      "image": "weapon.jpg",
+      "threshold": 0.25,
+      "s": 10.43
+    },
+    {
+      "image": "weapon.jpg",
+      "threshold": 0.15,
+      "s": 9.86
+    }
+  ],
+  "env": {
+    "platform": "Linux-5.10.134-013.8.3.kangaroo.al8.x86_64-x86_64-with-glibc2.41",
+    "python": "3.12.14",
+    "torch": "2.14.0+cpu",
+    "transformers": "5.17.0"
+  },
+  "scenes": {
+    "top1": "5/6",
+    "top3": "6/6",
+    "detail": [
+      {
+        "image": "scene_mosque.jpg",
+        "expected": "mosque",
+        "got": [
+          "mosque",
+          "church",
+          "battlefield"
+        ]
+      },
+      {
+        "image": "scene_beach.jpg",
+        "expected": "beach",
+        "got": [
+          "beach",
+          "battlefield",
+          "airport"
+        ]
+      },
+      {
+        "image": "scene_supermarket.jpg",
+        "expected": "supermarket",
+        "got": [
+          "supermarket",
+          "airport",
+          "hospital"
+        ]
+      },
+      {
+        "image": "scene_stadium.jpg",
+        "expected": "stadium",
+        "got": [
+          "stadium",
+          "battlefield",
+          "home interior"
+        ]
+      },
+      {
+        "image": "scene_office.jpg",
+        "expected": "office",
+        "got": [
+          "office",
+          "home interior",
+          "classroom"
+        ]
+      },
+      {
+        "image": "scene_street.jpg",
+        "expected": "street",
+        "got": [
+          "beach",
+          "street",
+          "hospital"
+        ]
+      }
+    ]
+  },
+  "embeddings": {
+    "model": "sentence-transformers/clip-ViT-B-32",
+    "zero_shot_category_top1": "8/10",
+    "top3": "9/10",
+    "detail": [
+      {
+        "image": "person.jpg",
+        "expected": "person",
+        "top3": [
+          "person",
+          "child",
+          "product"
+        ]
+      },
+      {
+        "image": "crowd.jpg",
+        "expected": "crowd",
+        "top3": [
+          "crowd",
+          "political symbol",
+          "logo"
+        ]
+      },
+      {
+        "image": "animal.jpg",
+        "expected": "animal",
+        "top3": [
+          "vehicle",
+          "building",
+          "crowd"
+        ]
+      },
+      {
+        "image": "vehicle.jpg",
+        "expected": "vehicle",
+        "top3": [
+          "vehicle",
+          "product",
+          "political symbol"
+        ]
+      },
+      {
+        "image": "building.jpg",
+        "expected": "building",
+        "top3": [
+          "building",
+          "political symbol",
+          "religious symbol"
+        ]
+      },
+      {
+        "image": "flag.jpg",
+        "expected": "flag",
+        "top3": [
+          "flag",
+          "political symbol",
+          "religious symbol"
+        ]
+      },
+      {
+        "image": "religious_symbol.jpg",
+        "expected": "religious symbol",
+        "top3": [
+          "religious symbol",
+          "political symbol",
+          "weapon"
+        ]
+      },
+      {
+        "image": "food.jpg",
+        "expected": "food",
+        "top3": [
+          "religious symbol",
+          "logo",
+          "food"
+        ]
+      },
+      {
+        "image": "product.jpg",
+        "expected": "product",
+        "top3": [
+          "product",
+          "food",
+          "weapon"
+        ]
+      },
+      {
+        "image": "weapon.jpg",
+        "expected": "weapon",
+        "top3": [
+          "weapon",
+          "vehicle",
+          "political symbol"
+        ]
+      }
+    ]
+  }
+}

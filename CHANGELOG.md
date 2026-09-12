@@ -24,7 +24,7 @@ The fix is architectural, not another gating flag: two products with different m
 ### Honest limitations at 0.1.0
 
 - The open-vocabulary detector and embedding backend degrade gracefully when their (heavy, optional) model dependencies are absent: detection/alignment endpoints report `model: "unavailable"` rather than pretending to run. The heuristic alignment fallback is deterministic and clearly labeled as such.
-- Precision/recall figures for the default detector against a hand-annotated sample are *not yet published* in `docs/METHODOLOGY.md`; treat detection defaults as experimental until that table lands (the parent project's honesty standard for LLM-assisted metaphor detection applies here too).
+- Precision/recall for the default detector **are published** in `docs/METHODOLOGY.md §6` — from the first §16 validation round on a 16-image hand-annotated sample (micro P = R ≈ 0.41 at the default threshold; scene top-1 5/6; embedding zero-shot top-1 8/10). Detection output is candidate evidence requiring human verification, and the documented failures (products, food, religious symbols at recall 0) are stated as bluntly as the successes (the parent project's honesty standard for LLM-assisted metaphor detection applies here too).
 - Companion Mode is shipped but *not* required for the Definition of Done; it can be deferred at packaging time without touching any other subsystem.
 
 ### Credits

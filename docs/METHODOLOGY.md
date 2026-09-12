@@ -28,7 +28,7 @@ These are the numeric substratum every interpretive claim may cite:
 - **OCR** — Tesseract (Arabic + English + mixed), per-image mean confidence always surfaced; per-word bounding boxes feed typography and KWIC. Re-analysis after installing a language pack is non-destructive.
 - **Colour** — dominant colours (quantized), warm/cold balance, brightness, contrast, saturation. Colour-symbolism notes are phrased as culture-relative, never universal.
 - **Composition (geometric)** — saliency = local variance against a Gaussian-blurred base; information value (left/right = given/new; top/bottom = ideal/real; centre/margin), rule-of-thirds intersection salience, golden-ratio offset, visual balance (right − left), framing balance, gradient-orientation vectors.
-- **Open-vocabulary detection** — OWL-ViT-class zero-shot detector run locally; labelled bounding boxes (normalized [x, y, w, h]) with confidence; categories include people, vehicles, buildings, weapons, flags, logos, religious/political symbols. Scene classification via CLIP zero-shot. *Honesty note: published precision/recall against a hand-annotated sample is pending (§16); treat default thresholds as experimental until the table appears in this document.*
+- **Open-vocabulary detection** — OWL-ViT-class zero-shot detector run locally; labelled bounding boxes (normalized [x, y, w, h]) with confidence; categories include people, vehicles, buildings, weapons, flags, logos, religious/political symbols. Scene classification via CLIP zero-shot. *Honesty note: precision/recall against a hand-annotated sample is published in §6 below — at the default threshold the detector is candidate-evidence-only (P ≈ R ≈ 0.41 on a 16-image smoke sample). Treat default-threshold output as experimental until the ≥ 100-image validation lands.*
 - **Typography-in-image** — from OCR box geometry: size bands (pixel-height quartiles), dominant case, alignment, line estimate, size-hierarchy ratio, emphasis signals (e.g. shouty caps). Not font identification — reproducible geometry.
 
 ## 3. The corpus-linguistics battery over annotation sequences (§9.14)
@@ -97,10 +97,47 @@ The extracted OCR text + captions constitute an exportable corpus: word-frequenc
 
 ## 6. Detector & embedding validation (§16)
 
-Before the Phase-2 defaults can be treated as production-quality:
+**First validation round — published at v0.1.0.** The numbers below are a smoke-level benchmark on a deliberately small hand-annotated sample; they are an honest floor, not a claim of parity with fine-tuned, task-specific models.
 
-1. Hand-annotate a small stratified sample (≥ 100 images) for the detector's priority categories.
-2. Report precision/recall per category here — honestly, including failures on the categories researchers care about (weapons, religious/political symbols, flags).
-3. Spot-check embedding alignment confidence calibration (the [0.2, 0.4] cosine → [0, 1] mapping) against human-verified region/span pairs; adjust and re-document.
+**Sample.** 16 freely licensed images (10 object images with 32 hand-annotated boxes + 6 scene-labelled images), sourced via Openverse with per-image attribution and license recorded in `scripts/validation-sample.json`. This is below the ≥ 100-image target set earlier in this section; growing the sample is ongoing work, and the current numbers should be read with that in mind. Annotation policy: single annotator (coarse normalized boxes by visual inspection), depictions of people counted as `person` ground truth (consistent with the consent gate treating depictions as people-representations).
 
-Until that table lands, detection endpoints are labelled experimental and alignment falls back to the clearly-labelled grid heuristic where model dependencies are absent.
+**Method.** The engine's own `OWLViTDetector` (`google/owlvit-base-patch32`) over the default 13-category prompt set; images square-padded (≤ 800 px) for the benchmark run; greedy matching by confidence, same category, IoU ≥ 0.5; CPU-only (2 threads). Reproduce with `python scripts/validate_detector.py` (see script for subcommands and environment notes).
+
+**Micro-averaged detection (32 ground-truth boxes):**
+
+| threshold | precision | recall | TP / FP / FN |
+|---|---|---|---|
+| 0.40 | **1.000** | 0.125 | 4 / 0 / 28 |
+| 0.25 | 0.727 | 0.250 | 8 / 3 / 24 |
+| 0.15 (engine default) | 0.406 | 0.406 | 13 / 19 / 19 |
+
+**Per category at the default threshold 0.15:**
+
+| category | precision | recall | notes |
+|---|---|---|---|
+| building | 0.417 | 0.625 | over-triggers on incidental architecture |
+| crowd | 1.0 | 1.0 | n = 1 — not meaningful yet |
+| flag | 0.5 | 1.0 | the one large flag was found |
+| person | 0.25 | 0.6 | noisy: mural/painted figures detected as persons (by our own depiction policy these are *also* valid positives, so real-world precision is between the strict table value and ~0.5) |
+| vehicle | 0.667 | 0.333 | missed a large, saturated red car at default threshold |
+| weapon | 1.0 | 0.5 | found the tracked gun, missed the second vehicle-weapon |
+| food | 0.0 | 0.0 | missed painted fruit entirely |
+| product | 0.0 | 0.0 | missed a shelf of wine bottles entirely |
+| religious symbol | 0.0 | 0.0 | missed a carved cross slab |
+
+**Honest reading (§16 requires this be blunt):**
+
+1. At the default threshold the detector is roughly a coin flip (P = R ≈ 0.41 on this sample). Treat every detection as *candidate evidence requiring human verification* — the UI and API already label it as such — not as a measurement.
+2. The failure cases concentrate exactly where media-studies researchers need sensitivity: products, food, religious symbols (all recall 0 on this sample), and the second weapon. These categories must not be used for absence claims ("no weapons appear in this set") at v0.1.0.
+3. Raising the threshold trades noise for silence: 0.25 is a precision-leaning profile (P = 0.73), 0.40 is near-silence. The default remains 0.15 until the larger sample says otherwise.
+4. **Scene classification (CLIP zero-shot over the 16 configured scene classes, 6 images): top-1 5/6, top-3 6/6** — the one miss (coastal street read as beach) is a defensible confusion, and the expected label appeared in top-3 every time.
+5. **Embedding backend (`sentence-transformers/clip-ViT-B-32`, zero-shot over the 13 object categories, 10 images): top-1 8/10, top-3 9/10** — image-level zero-shot categorisation is markedly stronger than box-level detection on this sample, which supports using embeddings for alignment/retrieval while treating boxes as candidate evidence.
+6. Latency: ~10 s/image at 0.15 (CPU, 2 threads) after a ~21 s warm-up pass — batch ingestion on CPU-only machines should budget accordingly.
+
+Still open before Phase-2 defaults can be called production-quality:
+
+1. Grow the hand-annotated sample to ≥ 100 stratified images (the current tables are a floor, and small-n cells like `crowd` are placeholders).
+2. Spot-check embedding alignment confidence calibration (the [0.2, 0.4] cosine → [0, 1] mapping) against human-verified region/span pairs; adjust and re-document.
+3. Re-evaluate the detector default threshold and consider a stronger open-vocabulary backend behind the same pluggable interface (the `Detector` protocol was built for exactly this swap).
+
+Detection endpoints remain labelled experimental; where model dependencies are absent the engine reports `model: "unavailable"` rather than pretending to run.

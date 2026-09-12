@@ -107,3 +107,11 @@ See [CITATION.cff](CITATION.cff) (DOI: `10.5281/zenodo.21673083`).
 ## Acknowledgements
 
 CorpusMind Lens was extracted from the [CorpusMind](https://github.com/waleedmandour/CorpusMind) monorepo and rebuilt as a standalone product. The visual-analysis apparatus — the five-dimension annotation framework, the statistics battery, the framework templates, and the vision API design — originated in CorpusMind by **Dr. Waleed Mandour (Sultan Qaboos University)** and **Prof. Wesam Ibrahim (Princess Nourah Bint Abdulrahman University)**, and this project gratefully credits that origin. Lens is independently licensed and versioned under the same AGPL-3.0-only terms.
+
+## Disclaimer
+
+**AI-assisted development.** The application code in this repository was developed using multiple AI agents — including **GLM-5.1, GLM-5.2, and GLM-5.3 Flash, Claude, and Gemini** — working under the direction and review of the project author. As with any AI-assisted software, outputs and analyses should be verified by the researcher before being relied upon in published work.
+
+**No funding.** No funding, grants, or sponsorships have been received for this project. It is developed voluntarily and offered free of charge.
+
+**Built with love** for students and the academic community.

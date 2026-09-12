@@ -72,8 +72,15 @@ def test_grid_fallback_is_honestly_labelled():
                            {"text": "words", "conf": 0.9, "box": [40, 5, 40, 20]}]}
     import asyncio
 
-    result = asyncio.run(align_image_text(buf.getvalue(), ocr_block))
-    # In the test env, sentence-transformers is not installed → grid fallback
+    # Force the fallback deterministically (the real backend may or may not
+    # be installed in a given environment): a stub whose available() is False.
+    class _NoEmbeddings:
+        model_id = "unavailable"
+
+        def available(self) -> bool:
+            return False
+
+    result = asyncio.run(align_image_text(buf.getvalue(), ocr_block, backend=_NoEmbeddings()))
     assert result["backend"] == "grid-heuristic"
     assert "NOT semantic" in result["note"] or "geometric" in result["note"]
     for pair in result["pairs"]:

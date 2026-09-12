@@ -14,6 +14,7 @@ default and enforced server-side, not merely in the UI:
 from __future__ import annotations
 
 import os
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -23,10 +24,28 @@ def _repo_root() -> Path:
     return Path(__file__).resolve().parent.parent.parent
 
 
+def _frozen_base() -> Path:
+    """Resource base when running as a PyInstaller sidecar.
+
+    Onefile builds unpack data files under ``sys._MEIPASS``; the release
+    pipeline ships the 12 discourse frameworks there via
+    ``--add-data …:reference-data/frameworks``. Onedir builds keep them next
+    to the executable.
+    """
+    meipass = getattr(sys, "_MEIPASS", None)
+    if meipass:
+        return Path(meipass)
+    return Path(sys.executable).resolve().parent
+
+
 def _default_frameworks_dir() -> Path:
     env = os.environ.get("LENS_FRAMEWORKS_DIR")
     if env:
         return Path(env)
+    if getattr(sys, "frozen", False):  # PyInstaller sidecar (release builds)
+        cand = _frozen_base() / "reference-data" / "frameworks"
+        if cand.is_dir():
+            return cand
     root = _repo_root()
     cand = root / "reference-data" / "frameworks"
     if cand.is_dir():

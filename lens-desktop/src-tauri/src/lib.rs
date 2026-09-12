@@ -26,7 +26,7 @@ use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 use log::{error, info, warn};
-use tauri::State;
+use tauri::{Manager, State};
 
 const ENGINE_HOST: &str = "127.0.0.1";
 const PARENT_ENGINE_PORT: u16 = 8765; // where CorpusMind (Text) usually listens
@@ -74,17 +74,46 @@ fn pick_port() -> u16 {
 
 // ─── Sidecar discovery ─────────────────────────────────────────────────
 
-fn find_engine_binary() -> Option<std::path::PathBuf> {
-    // Bundled resource: <resource>/lens-engine/lens-engine(.exe)
+/// Arch-suffixed sidecar name (universal macOS builds bundle BOTH
+/// `lens-engine-aarch64` and `lens-engine-x86_64`; single-arch builds ship
+/// the plain `lens-engine`). `std::env::consts::ARCH` is "aarch64" or
+/// "x86_64", matching the PyInstaller artifact names.
+fn arch_engine_name() -> String {
+    format!("lens-engine-{}", std::env::consts::ARCH)
+}
+
+fn find_engine_binary(app: &tauri::AppHandle) -> Option<std::path::PathBuf> {
     let exe = std::env::current_exe().ok()?;
     let dir = exe.parent()?;
-    let candidates = [
-        dir.join("lens-engine").join("lens-engine"),
-        dir.join("lens-engine.exe"),
+
+    let mut candidates: Vec<std::path::PathBuf> = Vec::new();
+    let arch_name = arch_engine_name();
+
+    // 1. Bundled resource dir. On macOS resources live in
+    //    Contents/Resources (NOT next to the exe in Contents/MacOS), so the
+    //    Tauri resource resolver is the only correct lookup there.
+    if let Ok(res_dir) = app.path().resolve("lens-engine", tauri::path::BaseDirectory::Resource) {
+        candidates.push(res_dir.join(&arch_name));
+        candidates.push(res_dir.join("lens-engine"));
         #[cfg(windows)]
-        dir.join("lens-engine").join("lens-engine.exe"),
-    ];
-    candidates.into_iter().find(|c| c.exists())
+        candidates.push(res_dir.join("lens-engine.exe"));
+    }
+
+    // 2. Exe-relative fallbacks (Windows/Linux resource layouts, dev runs).
+    candidates.push(dir.join(&arch_name));
+    candidates.push(dir.join("lens-engine").join("lens-engine"));
+    candidates.push(dir.join("lens-engine"));
+    #[cfg(windows)]
+    {
+        candidates.push(dir.join("lens-engine").join("lens-engine.exe"));
+        candidates.push(dir.join("lens-engine.exe"));
+    }
+
+    let found = candidates.into_iter().find(|c| c.is_file());
+    if let Some(p) = &found {
+        info!("sidecar binary: {}", p.display());
+    }
+    found
 }
 
 fn find_python_fallback() -> Option<Command> {
@@ -141,11 +170,14 @@ fn engine_status(state: State<EngineManager>) -> serde_json::Value {
 }
 
 #[tauri::command]
-fn start_engine(state: State<EngineManager>) -> Result<serde_json::Value, String> {
+fn start_engine(
+    app: tauri::AppHandle,
+    state: State<EngineManager>,
+) -> Result<serde_json::Value, String> {
     let port = pick_port();
     *state.port.lock().unwrap() = port;
 
-    let mut cmd = if let Some(bin) = find_engine_binary() {
+    let mut cmd = if let Some(bin) = find_engine_binary(&app) {
         strip_quarantine(&bin);
         let mut c = Command::new(&bin);
         c.current_dir(bin.parent().map(|p| p.to_path_buf()).unwrap_or_default());
@@ -168,6 +200,15 @@ fn start_engine(state: State<EngineManager>) -> Result<serde_json::Value, String
     let err = std::fs::OpenOptions::new().create(true).append(true).open(&log_path);
     if let (Ok(o), Ok(e)) = (out, err) {
         cmd.stdout(Stdio::from(o)).stderr(Stdio::from(e));
+    }
+
+    #[cfg(windows)]
+    {
+        // A console-subsystem sidecar spawned by a windows_subsystem="windows"
+        // host flashes a console window — suppress it (documented pitfall).
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        cmd.creation_flags(CREATE_NO_WINDOW);
     }
 
     info!("spawning lens-engine on port {}", port);

@@ -4,14 +4,25 @@ on:
   push:
     tags: ["v*"]
 
-# Lens's own release pipeline (§12): engine sidecar (PyInstaller) + desktop
-# bundles + PWA artifact, built from this repo only — never as a secondary
-# target of another product's workflow (the parent's documented regression).
+# Lens's own release pipeline (§12/§15 Phase 4): engine sidecar (PyInstaller)
+# + desktop bundles + tagged release, built from this repo only — never as a
+# secondary target of another product's workflow (the parent's regression).
+#
+# Layout:
+#   1. engine-binaries — PyInstaller onefile sidecar per OS/CPU: Linux x64,
+#      Windows x64, macOS arm64 (Apple Silicon) AND macOS x64 (x64 CPython
+#      under Rosetta 2 on the arm64 runner — GitHub no longer ships Intel
+#      runners), each bundling the 12 discourse frameworks via --add-data.
+#   2. desktop — Tauri bundles: deb+AppImage, NSIS .exe+WiX .msi, and a
+#      universal-apple-darwin .app/.dmg covering BOTH Intel and Apple Silicon
+#      (the shell picks the matching sidecar at runtime via its ARCH suffix).
+#   3. github-release — attaches every bundle to the tagged release.
 jobs:
   engine-binaries:
-    name: lens-engine sidecar (${{ matrix.os }})
+    name: lens-engine sidecar (${{ matrix.artifact }})
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
@@ -19,48 +30,137 @@ jobs:
           - os: windows-latest
             artifact: lens-engine-windows
           - os: macos-latest
-            artifact: lens-engine-macos
+            artifact: lens-engine-macos-arm64
+            python-arch: arm64
+          - os: macos-latest
+            artifact: lens-engine-macos-x64
+            python-arch: x64   # x64 CPython under Rosetta 2 → x86_64 sidecar
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+          architecture: ${{ matrix.python-arch || 'x64' }}
       - name: Build sidecar
         working-directory: lens-engine
+        shell: bash
         run: |
+          SEP=":"
+          if [ "$RUNNER_OS" = "Windows" ]; then SEP=";"; fi
           pip install pyinstaller .
-          pyinstaller --onefile --name lens-engine -c lens_engine/__main__.py
+          pyinstaller --onefile --name lens-engine \
+            --add-data "../reference-data/frameworks${SEP}reference-data/frameworks" \
+            --hidden-import uvicorn.loops.asyncio \
+            --hidden-import uvicorn.protocols.http.h11_impl \
+            --hidden-import uvicorn.protocols.http.httptools_impl \
+            --hidden-import uvicorn.protocols.websockets.websockets_impl \
+            --hidden-import uvicorn.protocols.websockets.wsproto_impl \
+            --hidden-import uvicorn.logging \
+            --hidden-import lens_engine.api.imagesets \
+            --hidden-import lens_engine.api.images \
+            --hidden-import lens_engine.api.annotations \
+            --hidden-import lens_engine.api.analysis \
+            --hidden-import lens_engine.api.detection \
+            --hidden-import lens_engine.api.vision_ai \
+            --hidden-import lens_engine.api.discourse \
+            --hidden-import lens_engine.api.battery \
+            --hidden-import lens_engine.api.compare \
+            --hidden-import lens_engine.api.ocrtools \
+            --hidden-import lens_engine.api.export \
+            --hidden-import lens_engine.api.assistant \
+            --hidden-import lens_engine.api.companion \
+            --hidden-import lens_engine.api.settings_router \
+            lens_engine/__main__.py
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
           path: lens-engine/dist/lens-engine*
 
   desktop:
-    name: desktop bundles (${{ matrix.os }})
+    name: desktop bundles (${{ matrix.name }})
     needs: engine-binaries
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          - name: linux
+            os: ubuntu-latest
+          - name: windows
+            os: windows-latest
+          - name: macos-universal
+            os: macos-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: "20" }
       - uses: dtolnay/rust-toolchain@stable
+      - name: Extra rust targets (universal macOS)
+        if: runner.os == 'macOS'
+        run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: lens-desktop/src-tauri
+      - name: Install Tauri system deps (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libudev-dev libfuse2
       - name: Build web bundle
         working-directory: lens-web
         run: npm install && npm run build
-      - name: Tauri build
-        working-directory: lens-desktop/src-tauri
+
+      - name: Place engine sidecar (Linux)
+        if: runner.os == 'Linux'
+        uses: actions/download-artifact@v4
+        with:
+          name: lens-engine-linux
+          path: lens-desktop/binaries/lens-engine
+      - name: Make sidecar executable (Linux)
+        if: runner.os == 'Linux'
+        run: chmod +x lens-desktop/binaries/lens-engine/lens-engine
+      - name: Place engine sidecar (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/download-artifact@v4
+        with:
+          name: lens-engine-windows
+          path: lens-desktop/binaries/lens-engine
+      - uses: actions/download-artifact@v4
+        if: runner.os == 'macOS'
+        with:
+          name: lens-engine-macos-arm64
+          path: lens-desktop/binaries/dl/arm64
+      - uses: actions/download-artifact@v4
+        if: runner.os == 'macOS'
+        with:
+          name: lens-engine-macos-x64
+          path: lens-desktop/binaries/dl/x64
+      - name: Rename macOS sidecars (ARCH-suffixed)
+        if: runner.os == 'macOS'
         run: |
-          cargo install tauri-cli --version "^2" || true
-          cargo tauri build || cargo build --release
+          mkdir -p lens-desktop/binaries/lens-engine
+          cp lens-desktop/binaries/dl/arm64/lens-engine lens-desktop/binaries/lens-engine/lens-engine-aarch64
+          cp lens-desktop/binaries/dl/x64/lens-engine lens-desktop/binaries/lens-engine/lens-engine-x86_64
+          chmod +x lens-desktop/binaries/lens-engine/lens-engine-*
+          ls -l lens-desktop/binaries/lens-engine/
+
+      - name: Install Tauri CLI (prebuilt binary via npm)
+        run: npm install -g @tauri-apps/cli@^2
+      - name: Tauri build (universal macOS — Intel + Apple Silicon)
+        if: runner.os == 'macOS'
+        working-directory: lens-desktop
+        run: tauri build --target universal-apple-darwin
+      - name: Tauri build
+        if: runner.os != 'macOS'
+        working-directory: lens-desktop
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: "1"   # AppImage tooling without FUSE
+        run: tauri build
       - uses: actions/upload-artifact@v4
         with:
-          name: lens-desktop-${{ matrix.os }}
+          name: lens-desktop-${{ matrix.name }}
           path: |
-            lens-desktop/src-tauri/target/release/bundle/**/*
-            lens-desktop/src-tauri/target/release/lens-desktop*
+            lens-desktop/src-tauri/target/*/release/bundle/**/*
 
   github-release:
     name: Tagged GitHub release
@@ -72,14 +172,19 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with: { path: dist }
+      - name: Extract release notes from CHANGELOG
+        run: |
+          awk 'NR>1{if(/^## /){exit} if(NR>1){print}}' CHANGELOG.md > RELEASE_NOTES.md
+          if [ ! -s RELEASE_NOTES.md ]; then echo "See CHANGELOG.md for the full release notes." > RELEASE_NOTES.md; fi
+          cat RELEASE_NOTES.md
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
-          body_path: CHANGELOG.md
+          body_path: RELEASE_NOTES.md
           files: dist/**/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Zenodo note
         run: |
-          echo "On first tagged release, mint/confirm the reserved DOI" \
+          echo "On this first tagged release, mint/confirm the reserved DOI" \
                "10.5281/zenodo.21673083 against this repository (§12, §19)."

@@ -56,6 +56,11 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: lens-desktop/src-tauri
+      - name: Stub sidecar binaries (release pipeline ships the real ones)
+        run: |
+          mkdir -p lens-desktop/binaries/lens-engine
+          printf 'placeholder — real lens-engine sidecar is built by release.yml\n' \
+            > lens-desktop/binaries/lens-engine/lens-engine
       - name: cargo check
         working-directory: lens-desktop/src-tauri
         run: cargo check --all-targets

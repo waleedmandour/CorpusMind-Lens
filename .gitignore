@@ -29,8 +29,9 @@ lens-engine/data/
 *.db
 models/
 binaries/*.exe
-binaries/corpusmind-lens-engine*
+lens-desktop/binaries/*
 !lens-desktop/binaries/README.md
+*.spec
 
 # --- OS / editor ---
 .DS_Store

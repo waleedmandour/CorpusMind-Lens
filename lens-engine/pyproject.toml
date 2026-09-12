@@ -9,9 +9,11 @@ description = "CorpusMind Lens engine — local-first visual & multimodal corpus
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "AGPL-3.0-only" }
+# Affiliations are recorded in CITATION.cff and README.md (PEP 621 authors
+# entries carry a name and email only).
 authors = [
-    { name = "Waleed Mandour", affiliation = "Sultan Qaboos University" },
-    { name = "Wesam Ibrahim", affiliation = "Princess Nourah Bint Abdulrahman University" },
+    { name = "Waleed Mandour" },
+    { name = "Wesam Ibrahim" },
 ]
 dependencies = [
     "fastapi>=0.110",

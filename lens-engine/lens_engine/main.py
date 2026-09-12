@@ -164,7 +164,10 @@ def create_app() -> FastAPI:
             for attr in attr_names:
                 registered.append(getattr(mod, attr))
         except ImportError as e:
-            log.warning("router_not_registered", extra={"module": mod_name, "error": str(e)})
+            # The message itself carries module+error: the standard log
+            # format does not render `extra` fields, and an operator tailing
+            # the sidecar's log file must see *why* a router is missing.
+            log.warning("router_not_registered %s: %s", mod_name, e)
 
     for r in registered:
         app.include_router(r, prefix="/api/v1")

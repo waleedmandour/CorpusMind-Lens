@@ -201,7 +201,10 @@ jobs:
           fi
       - name: Extract release notes from CHANGELOG
         run: |
-          awk 'NR>1{if(/^## /){exit} if(NR>1){print}}' CHANGELOG.md > RELEASE_NOTES.md
+          # First version section: from the first '## ' heading up to (not
+          # including) the next one. The previous awk exited AT the heading
+          # and captured only the preamble above it.
+          awk '/^## /{c++} c==1{print} c==2{exit}' CHANGELOG.md > RELEASE_NOTES.md
           if [ ! -s RELEASE_NOTES.md ]; then echo "See CHANGELOG.md for the full release notes." > RELEASE_NOTES.md; fi
           cat RELEASE_NOTES.md
       - name: Release

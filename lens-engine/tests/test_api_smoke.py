@@ -206,3 +206,26 @@ def test_describe_is_consent_gated_narrative_layer(app_client):
     # facial cues endpoint gated server-side (not just UI-hidden)
     r3 = c.post(f"/api/v1/images/{image_id}/facial-cues")
     assert r3.status_code in (403, 500)  # ConsentRequiredError → not silently allowed
+
+
+def test_corrupt_body_rejected_not_500(app_client):
+    """Valid magic bytes + corrupt body → per-file rejection, never a 500.
+
+    Regression: persist_image_bytes (full PIL decode for the thumbnail) ran
+    OUTSIDE the per-file try/except, so a header-valid/truncated image
+    crashed the whole batch upload (§13: honest per-file rejection)."""
+    c = app_client
+    p = c.post("/api/v1/projects", json={"name": "P-corrupt"}).json()
+    s = c.post("/api/v1/imagesets", json={"project_id": p["id"], "name": "corrupt"}).json()
+    good = make_png()
+    truncated = good[: len(good) // 2]  # PNG header intact, IDAT stream broken
+    files = [
+        ("files", ("good.png", good, "image/png")),
+        ("files", ("trunc.png", truncated, "image/png")),
+    ]
+    r = c.post(f"/api/v1/imagesets/{s['id']}/images", files=files)
+    assert r.status_code == 202, f"corrupt body must not 500 the batch: {r.status_code}"
+    body = r.json()
+    assert len(body["accepted"]) == 1
+    assert len(body["rejected"]) == 1
+    assert "undecodable image" in body["rejected"][0]["error"]

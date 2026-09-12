@@ -60,7 +60,15 @@ async def upload_images(
             size_bytes=len(raw),
             status="pending",
         )
-        storage_path, thumb_path = ingest_mod.persist_image_bytes(img, raw, settings=settings)
+        storage_path = thumb_path = ""
+        try:
+            storage_path, thumb_path = ingest_mod.persist_image_bytes(img, raw, settings=settings)
+        except Exception as e:
+            # Magic bytes were valid but the stream does not fully decode
+            # (truncated/corrupt body). Reject the single file — never 500
+            # the whole batch (§13: honest per-file rejection).
+            rejected.append({"filename": f.filename, "error": f"undecodable image: {e}"})
+            continue
         img.storage_path = storage_path
         img.thumb_path = thumb_path
         store.add_image(img)

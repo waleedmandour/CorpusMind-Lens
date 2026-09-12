@@ -21,6 +21,8 @@
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod ai_backend;
+
 use std::process::{Child, Command, Stdio};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
@@ -190,6 +192,9 @@ fn start_engine(
     cmd.env("LENS_HOST", ENGINE_HOST)
         .env("LENS_PORT", port.to_string())
         .env("LENS_DATA_DIR", data_dir());
+    // Hand the shell's machine probe to the engine so /ai/catalog fit
+    // badges use the same numbers the Setup screen shows (v0.2).
+    cmd.env("LENS_MACHINE_SPECS_JSON", ai_backend::machine_specs().to_string());
 
     // Log-to-FILE, never piped (piped stdout can hang on buffer limits).
     let log_path = log_file();
@@ -258,7 +263,16 @@ fn main() {
     env_logger::init();
     tauri::Builder::default()
         .manage(EngineManager::new())
-        .invoke_handler(tauri::generate_handler![engine_status, start_engine])
+        .manage(ai_backend::AiBackendManager::new())
+        .invoke_handler(tauri::generate_handler![
+            engine_status,
+            start_engine,
+            ai_backend::ai_backend_status,
+            ai_backend::ai_backend_start,
+            ai_backend::ai_backend_restart,
+            ai_backend::ai_install_ollama,
+            ai_backend::machine_specs_command,
+        ])
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::Destroyed = event {
                 // nothing extra — cleanup happens in RunEvent::Exit below
@@ -278,6 +292,9 @@ fn main() {
                     info!("engine exit — killing sidecar");
                     kill_child(child);
                 }
+                // Kill only the `ollama serve` WE spawned; a user-started
+                // daemon keeps running (parent's lesson, one way round).
+                ai_backend::shutdown(app.state::<ai_backend::AiBackendManager>().inner());
             }
         });
 }

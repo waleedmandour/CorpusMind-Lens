@@ -7,6 +7,10 @@ export function OverviewView() {
   const [projects, setProjects] = useState<any[]>([]);
   const [name, setName] = useState("");
   const [sets, setSets] = useState<Record<string, any[]>>({});
+  const [aiMissing, setAiMissing] = useState(false);
+  const [bannerDismissed, setBannerDismissed] = useState(
+    () => localStorage.getItem("lens.ai-banner-dismissed") === "1"
+  );
 
   const refresh = async () => {
     const ps = await api.listProjects();
@@ -21,12 +25,34 @@ export function OverviewView() {
   };
   useEffect(() => {
     refresh().catch(() => undefined);
+    // Graceful no-AI state (v0.2): deterministic features work everywhere;
+    // the banner just points at the Setup card when no backend answers.
+    api.providersStatus()
+      .then((s) => setAiMissing(!s.ollama.reachable && !s.lmstudio.reachable))
+      .catch(() => setAiMissing(false));
   }, []);
+
+  const dismiss = () => {
+    localStorage.setItem("lens.ai-banner-dismissed", "1");
+    setBannerDismissed(true);
+  };
 
   return (
     <div>
       <h2>{t.overview.title}</h2>
       <p className="muted" style={{ maxWidth: 720 }}>{t.overview.intro}</p>
+
+      {aiMissing && !bannerDismissed && (
+        <div className="card" style={{ borderInlineStart: "4px solid #f59e0b" }}>
+          <div className="row" style={{ justifyContent: "space-between", flexWrap: "wrap" }}>
+            <span style={{ fontSize: 13, maxWidth: 640 }}>{t.settings.noAiBanner}</span>
+            <span className="row">
+              <button className="btn secondary" onClick={() => setView("settings")}>{t.nav.settings}</button>
+              <button className="btn secondary" onClick={dismiss}>✕</button>
+            </span>
+          </div>
+        </div>
+      )}
 
       <div className="card">
         <h3>{t.overview.projects}</h3>

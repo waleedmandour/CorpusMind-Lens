@@ -86,6 +86,16 @@ class Settings:
     companion_base_url: str = field(
         default_factory=lambda: os.environ.get("LENS_COMPANION_BASE_URL", "")
     )
+    # v0.2 local-AI defaults. bge-m3 is the multilingual (EN+AR) embedding
+    # default — it replaces the absent torch CLIP stack in packaged builds
+    # for text-side semantics. The vision-OCR model is the Ollama vision
+    # model used by the OCR-assist re-analysis endpoint.
+    default_embedding_model: str = field(
+        default_factory=lambda: os.environ.get("LENS_EMBED_MODEL", "bge-m3")
+    )
+    vision_ocr_model: str = field(
+        default_factory=lambda: os.environ.get("LENS_VISION_OCR_MODEL", "qwen2.5vl:3b")
+    )
 
     def ensure_dirs(self) -> None:
         (self.data_dir / "images").mkdir(parents=True, exist_ok=True)

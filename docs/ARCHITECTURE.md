@@ -97,3 +97,14 @@ The Assistant runs a two-phase protocol: the model first proposes tool calls (fr
 - API version: `X-CorpusMind-API-Version` header (Companion Mode contract).
 - Every model-touching result records model id + revision; the Methods Section export names every engine/model/formula version that produced a corpus's numbers.
 - Framework templates are versioned YAML (`reference-data/frameworks/*.yaml`); their versions flow into result payloads.
+
+## AI runtime topology (v0.2)
+
+Lens has exactly one AI story on every platform: **the app is self-sufficient; local AI is a capability, not a package.**
+
+- **Deterministic core** (statistics, batteries, exports, heuristic lenses) has zero AI dependencies and works with no backend installed — the honest-degradation rules of §4 Principle 6 are unchanged.
+- **Local AI backends**: Ollama (native `/api/chat`, `/api/embed`, `/api/pull`) and LM Studio (OpenAI-compatible `/v1`). The desktop shell owns the Ollama *lifecycle* (find → `ollama serve` → TCP health → restart; only its own daemon is killed), while the engine owns the *protocol* (`ai/providers.py`). In PWA mode the engine can spawn `ollama serve` itself (`POST /ai/local/serve`).
+- **Bootstrap**: one-click per-user silent install (winget/OllamaSetup.exe on Windows, dmg→`~/Applications` on macOS, tarball→`~/.lens-engine-data/ollama-runtime` on Linux) — never an admin prompt.
+- **Model management**: `ai/catalog.py` serves curated entries + live HuggingFace GGUF search; every entry carries a conservative fit badge computed from the machine probe (shell `sysinfo` probe forwarded via `LENS_MACHINE_SPECS_JSON`, engine stdlib fallback; NVIDIA VRAM via `nvidia-smi`; Apple unified memory scaled by 0.75). Estimates are labelled `rule-of-thumb` in the payload.
+- **Text-side semantics** (semantic search, and the v0.3 vector-KWIC it enables) ride Ollama embeddings (`bge-m3` default) with vectors cached in `image.meta.semantic`; this restores the semantic capability the packaged builds lost when torch stayed out of the sidecar — CLIP joint-space remains the image-side engine of record when the optional `models` extra is installed.
+- **Failure posture**: missing backend → HTTP 409 with a setup hint (never fake data); missing model → a `pull` hint naming the exact model; all loopback, `trust_env=False`, nothing leaves the machine.

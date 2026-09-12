@@ -15,6 +15,16 @@ cd lens-web && npm install && npm run dev   # open http://localhost:5173
 
 Your browser can "install" the page as an app (address-bar install icon). The interface is available in English and Arabic (toggle in the ribbon) with full right-to-left mirroring.
 
+### 1a. Set up local AI (Ollama or LM Studio) — recommended
+
+The AI features (Assistant, LLM-annotated framework modes, semantic search, vision-model OCR) run entirely on your machine through a local AI backend.
+
+- **Settings → AI backend & models** shows whether **Ollama** or **LM Studio** is present. If neither is installed, the **Install Ollama (one click, silent)** button does it for you — no admin password is needed on any platform.
+- The screen also shows **your machine's specs** (RAM, CPU, GPU) and gives every model a fit badge: *GPU-fast* (fits in your graphics card), *CPU OK*, *Tight*, or **Too big** (it would run painfully slowly — pick a smaller one instead). "Recommended for this machine" picks sensible defaults for you.
+- Browse more models with the task filters (Vision / Text / Embeddings) or search thousands of **HuggingFace** models directly; press **Pull** and watch real progress. The first pull to make: a vision model (e.g. Qwen2.5-VL 3B) and the embedding model **bge-m3** (used by semantic search; it understands both English and Arabic).
+- If you prefer LM Studio, just start it — Lens detects it automatically; models are managed inside LM Studio itself.
+- **No AI backend? Everything deterministic still works** — statistics, framework batteries, exports. The Overview banner simply reminds you what you are missing; dismiss it freely.
+
 ## 2. Create a project and an image set
 
 1. **Overview → New project** — a project groups your work (e.g. "Election posters 2025").

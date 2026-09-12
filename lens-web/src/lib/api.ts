@@ -109,4 +109,66 @@ export const api = {
   settings: () => req<any>("/settings"),
   ethics: () => req<any>("/settings/ethics"),
   companionStatus: () => req<any>("/companion/status"),
+
+  // ── v0.2 local AI backend & models ──────────────────────────────────────
+  aiLocalStatus: () => req<any>("/ai/local/status"),
+  aiCatalog: (query = "", task = "any") =>
+    req<any>(`/ai/catalog?query=${encodeURIComponent(query)}&task=${task}`),
+  aiServeOllama: () => req<any>("/ai/local/serve", { method: "POST", body: "{}" }),
+  aiDeleteModel: (name: string) =>
+    req<any>("/ai/local/models", { method: "DELETE", body: JSON.stringify({ name }) }),
+  semanticSearch: (setId: string, query: string, topK = 20) =>
+    req<any>(`/imagesets/${setId}/semantic-search`, {
+      method: "POST",
+      body: JSON.stringify({ query, top_k: topK }),
+    }),
+  ocrVision: (imageId: string, model?: string) =>
+    req<any>(`/images/${imageId}/ocr/vision${model ? `?model=${encodeURIComponent(model)}` : ""}`,
+      { method: "POST" }),
+
+  /** Pull a model with live NDJSON progress (status/completed/total). */
+  aiPull: async (model: string, onLine: (e: any) => void): Promise<void> => {
+    const r = await fetch(`${BASE}/api/v1/ai/local/pull`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model }),
+    });
+    if (!r.ok || !r.body) {
+      let detail = r.statusText;
+      try { detail = (await r.json()).detail ?? detail; } catch { /* keep */ }
+      onLine({ done: true, error: detail });
+      return;
+    }
+    const reader = r.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = "";
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      const lines = buf.split("\n");
+      buf = lines.pop() ?? "";
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        try { onLine(JSON.parse(line)); } catch { /* skip partial */ }
+      }
+    }
+  },
+};
+
+// ── Tauri shell commands (absent when running as a browser PWA) ───────────
+// withGlobalTauri is on, so the shell exposes window.__TAURI__.
+export function isDesktopShell(): boolean {
+  return typeof (window as any).__TAURI__ !== "undefined";
+}
+
+export const shell = {
+  aiBackendStatus: () => (window as any).__TAURI__?.core.invoke("ai_backend_status"),
+  aiBackendStart: () => (window as any).__TAURI__?.core.invoke("ai_backend_start"),
+  aiBackendRestart: () => (window as any).__TAURI__?.core.invoke("ai_backend_restart"),
+  installOllama: () => (window as any).__TAURI__?.core.invoke("ai_install_ollama"),
+  machineSpecs: () => (window as any).__TAURI__?.core.invoke("machine_specs_command"),
+  /** Subscribe to silent-install progress events; returns an unlisten fn. */
+  onInstallProgress: (cb: (e: any) => void): Promise<() => void> | undefined =>
+    (window as any).__TAURI__?.event?.listen("ai-install://progress", (ev: any) => cb(ev.payload)),
 };

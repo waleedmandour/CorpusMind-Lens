@@ -2,6 +2,25 @@
 
 All notable changes to **CorpusMind Lens** are documented here, in the parent project's prose style: each entry explains *why*, not just *what*.
 
+## [0.2.0] — 2026-09-12 · One intuitive AI: Ollama-first, LM Studio-aware
+
+**Why:** v0.1.0 answered "can Lens run locally?" but left the AI story to the user's imagination — the parent CorpusMind finds and starts Ollama for you; Lens did nothing at all, and its packaged builds shipped without torch, so detection/CLIP/embeddings degraded to "unavailable" with no visible way back. The researcher experience the parent shipped — *install, and the AI is just there* — is the experience Lens now ships too, with the model-selection problem solved honestly: a 7B pull onto an 8GB laptop is a support ticket in waiting, so fit badges computed from the machine's actual RAM/VRAM appear **before** any multi-gigabyte download.
+
+### Added
+
+- **AI backend lifecycle in the shell** (the parent's `OllamaManager` pattern, upgraded): Ollama is found across all known install locations, started automatically (`ollama serve`, log-to-file, only Lens's own daemon is ever killed on exit), health-checked over TCP, and restartable from the UI. LM Studio presence is reported in the same place (the engine already speaks its OpenAI-compatible `/v1`).
+- **One-click silent install** when Ollama is missing: `winget` (fallback: per-user `OllamaSetup.exe /VERYSILENT`) on Windows, `Ollama.dmg` → `~/Applications` on macOS, and the official tarball into `~/.lens-engine-data/ollama-runtime` on Linux — per-user on every platform, no admin prompts, no sudo.
+- **Model catalog with fit badges**: curated Ollama-library entries (vision / text / embeddings — Qwen2.5-VL, Llama 3.2, Qwen3, Gemma3, LLaVA, Moondream, BGE-M3, Nomic, Qwen3-Embedding) plus live **HuggingFace GGUF search** (Ollama ≥0.5 pulls `hf.co/<user>/<repo>:<quant>` directly) with a preferred-quant picker. Every entry carries a conservative `gpu / cpu / tight / too-big / unknown` badge from the machine probe (sysinfo in the shell, stdlib fallback in the engine; NVIDIA VRAM via `nvidia-smi`; Apple unified memory treated honestly). Estimates are labelled `rule-of-thumb`, never benchmarks. Pulls stream real progress (NDJSON from `/api/pull`); installed models can be deleted.
+- **Semantic search over an image set** (`POST /imagesets/{id}/semantic-search`): OCR text + captions embedded via local Ollama (`bge-m3` — multilingual EN+AR — by default, `LENS_EMBED_MODEL` to override), vectors cached in image meta, cosine-ranked hits with coverage stats and an explicit "not CLIP joint-space" disclaimer. This is the first step of the Anthony-2025 embeddings-in-concordancing roadmap.
+- **Vision-model OCR assist** (`POST /images/{id}/ocr/vision`): re-extracts text with a local VLM (default `qwen2.5vl:3b`) for packaged builds without Tesseract — text only, no per-word boxes, flat confidence marker, engine label always explicit; Tesseract remains the engine of record for typography/word geometry.
+- **Setup UI**: a new "AI backend & models" card in Settings (status, machine specs line, recommended models, task-filtered catalog, HF search, progress bars), an Overview banner when no backend is reachable (dismissible; deterministic features keep working), and EN/AR strings throughout.
+
+### Changed
+
+- The shell hands its machine probe to the engine (`LENS_MACHINE_SPECS_JSON`) so UI and API score fits against identical numbers.
+- CI/release: engine sidecars stay CI-artifacts-only (v0.1.1 decision unchanged); versions bumped to 0.2.0 across the five manifests; test suite grown 85 → 100 (catalog fit scoring, HF contract incl. network-failure honesty, `/ai/local/*` contracts, semantic-search ranking with a mocked Ollama, vision-OCR paths, machine probe shape).
+- `docs/ROADMAP.md` added — the corpus-linguistics gap analysis (AntConc/Sketch Engine/LancsBox audit), the LLM-annotation-with-verification plan, the Arabic-first track, and the recorded non-goals.
+
 ## [0.1.1] — 2026-09-12 · Single-package release page
 
 **Why:** the v0.1.0 release page listed nine assets — five installers *plus* four standalone `lens-engine-*` binaries. The binaries were a relic of the staging logic (they exist for CI/headless use) and, worse, they *implied* a second mandatory download. A researcher who just wants to analyse an image set should make exactly one decision: which installer matches my platform. Nothing else.

@@ -12,6 +12,7 @@ from collections import Counter
 from fastapi import APIRouter, HTTPException
 
 from ..main import get_store
+from ..config import get_settings
 from ..nlp_ar.normalize import is_arabic, normalize_arabic
 from ..stats import measures as M
 
@@ -125,3 +126,33 @@ async def export_corpus(set_id: str, format: str = "txt") -> dict:
         return {"docs": [{"image_id": iid, "text": text} for iid, text in docs]}
     body = "\n\n".join(f"<doc id=\"{iid}\">\n{text}\n</doc>" for iid, text in docs)
     return {"format": "txt", "body": body}
+
+
+@router.post("/images/{image_id}/ocr/vision")
+async def ocr_via_vision_model(image_id: str, model: str | None = None) -> dict:
+    """Re-extract text with a local Ollama vision model (v0.2).
+
+    For packaged builds (no Tesseract) or low-confidence pages. Overwrites
+    the stored OCR **text**; per-word boxes are NOT produced (a VLM returns
+    text only), so typography/word-geometry features stay tied to Tesseract
+    results. The engine label in the response is always explicit.
+    """
+    from fastapi import HTTPException
+
+    from ..main import get_store
+    from ..vision.ingest import read_image_bytes
+    from ..vision.ocr import run_vision_ocr
+
+    store = get_store()
+    img = store.get_image(image_id)
+    if img is None:
+        raise HTTPException(404, "Image not found")
+    raw = read_image_bytes(img.storage_path, get_settings().encryption_key)
+    result = await run_vision_ocr(raw, model=model)
+    if result.text:
+        meta = dict(img.meta or {})
+        meta["ocr"] = result.to_dict()
+        store.update_image(image_id, meta=meta)
+    return {"image_id": image_id, **result.to_dict(),
+            "note": "Vision-model OCR has no per-word boxes; tesseract remains "
+                    "the engine of record for typography/word geometry."}

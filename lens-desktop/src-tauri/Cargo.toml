@@ -1,6 +1,6 @@
 [package]
 name = "corpusmind-lens"
-version = "0.1.1"
+version = "0.2.0"
 description = "CorpusMind Lens desktop shell (Tauri 2) — local-first visual & multimodal corpus analysis. Manages the lens-engine sidecar lifecycle and OS integration."
 authors = ["Dr. Waleed Mandour", "Prof. Wesam Ibrahim"]
 license = "AGPL-3.0-only"
@@ -26,6 +26,7 @@ serde_json = "1"
 log = "0.4"
 env_logger = "0.11"
 thiserror = "2"
+sysinfo = "0.31"
 
 [profile.release]
 strip = true

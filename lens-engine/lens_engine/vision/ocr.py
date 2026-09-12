@@ -100,3 +100,57 @@ def run_ocr(raw: bytes, *, language: str = "eng") -> OCRResult:
     except Exception as e:
         log.warning("ocr_failed", extra={"error": str(e)})
         return OCRResult(text="", confidence=0.0, word_count=0, engine="none", language=language)
+
+
+VISION_OCR_PROMPT = (
+    "Transcribe ALL visible text in this image verbatim, in reading order. "
+    "Preserve the original language(s) and script (including Arabic). "
+    "Output ONLY the transcribed text — no commentary, no markdown."
+)
+
+
+async def run_vision_ocr(raw: bytes, *, model: str | None = None,
+                         provider=None) -> OCRResult:
+    """OCR via a local vision-language model (Ollama), for machines without
+    Tesseract (packaged builds ship without it).
+
+    Honest limitation, stated everywhere this result appears: a VLM returns
+    TEXT ONLY — there are no per-word bounding boxes, so the §9.8 typography
+    profiler and the visual KWIC's word geometry cannot run from this result
+    (``words`` is empty). ``confidence`` is a flat 0.6 marker value, NOT a
+    measured accuracy. Tesseract remains the engine of record for boxes;
+    this path exists so text extraction is not simply *unavailable*.
+    """
+    from ..ai.providers import Message, OllamaProvider
+    from ..config import get_settings
+
+    if provider is None:
+        provider = OllamaProvider()
+        if not await provider.health():
+            log.info("vision_ocr_unavailable", extra={"reason": "ollama not reachable"})
+            return OCRResult(text="", confidence=0.0, word_count=0,
+                             engine="vision-model-unreachable")
+    model = model or get_settings().vision_ocr_model
+
+    try:
+        resp = await provider.chat(
+            [Message(role="user", content=VISION_OCR_PROMPT, images=(raw,))],
+            model=model, temperature=0.0,
+        )
+        text = (resp.content or "").strip()
+        if not text:
+            return OCRResult(text="", confidence=0.0, word_count=0,
+                             engine=f"vision-model:{model}", language="auto")
+        words_n = len([w for w in text.split() if w.strip()])
+        return OCRResult(
+            text=text,
+            confidence=0.6,  # flat marker: VLM OCR has no per-word confidence
+            word_count=words_n,
+            engine=f"vision-model:{model}",
+            language="auto",
+            words=[],
+        )
+    except Exception as e:
+        log.warning("vision_ocr_failed", extra={"error": str(e)})
+        return OCRResult(text="", confidence=0.0, word_count=0,
+                         engine=f"vision-model-error:{e}"[:80])

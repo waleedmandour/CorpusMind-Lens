@@ -1,6 +1,234 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useShell } from "../shell";
-import { api } from "../lib/api";
+import { api, isDesktopShell, shell } from "../lib/api";
+
+type Fit = "gpu" | "cpu" | "tight" | "too-big" | "unknown";
+
+function fitLabel(t: any, fit: Fit): string {
+  if (fit === "gpu") return t.settings.fitGpu;
+  if (fit === "cpu") return t.settings.fitCpu;
+  if (fit === "tight") return t.settings.fitTight;
+  if (fit === "too-big") return t.settings.fitTooBig;
+  return t.settings.fitUnknown;
+}
+
+function ModelRow({ model, t, onPull, pullState, onRemove, installed }: {
+  model: any;
+  t: any;
+  onPull: (m: string) => void;
+  pullState?: { label: string; pct: number | null; done: boolean; error?: string };
+  onRemove?: (m: string) => void;
+  installed?: boolean;
+}) {
+  const cls = model.fit === "gpu" ? "grounded" : model.fit === "too-big" ? "ungrounded" : "";
+  return (
+    <div className="row" style={{ alignItems: "flex-start", gap: 10, padding: "6px 0", flexWrap: "wrap" }}>
+      <div style={{ minWidth: 240, flex: 1 }}>
+        <strong>{model.display}</strong>{" "}
+        <span className="evidence">{model.model}</span>
+        <div className="muted" style={{ fontSize: 12 }}>
+          {model.params && typeof model.params === "number" ? "" : model.params}
+          {model.size_gb ? ` · ${model.size_gb} GB` : ""} · {model.notes}
+        </div>
+        {pullState && !pullState.done && pullState.pct !== null && (
+          <div style={{ background: "var(--border, #e5e7eb)", borderRadius: 4, height: 6, marginTop: 4, maxWidth: 280 }}>
+            <div style={{ width: `${Math.round(pullState.pct * 100)}%`, background: "#2563eb", height: 6, borderRadius: 4 }} />
+          </div>
+        )}
+      </div>
+      <span className={`chip ${cls}`}>{fitLabel(t, model.fit)}{model.multilingual ? " · AR/EN" : ""}</span>
+      {pullState && !pullState.done ? (
+        <span className="chip">{pullState.pct !== null ? `${Math.round(pullState.pct * 100)}%` : pullState.label}</span>
+      ) : installed && onRemove ? (
+        <button className="btn secondary" onClick={() => onRemove(model.name)}>{t.common.delete}</button>
+      ) : pullState?.error ? (
+        <span className="chip ungrounded">{pullState.error.slice(0, 40)}</span>
+      ) : (
+        <button className="btn secondary" disabled={model.fit === "too-big"} onClick={() => onPull(model.ref ?? model.model)}>
+          {t.settings.pull}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function AiBackendCard({ t }: { t: any }) {
+  const [status, setStatus] = useState<any>(null);
+  const [shellStatus, setShellStatus] = useState<any>(null);
+  const [catalog, setCatalog] = useState<any>(null);
+  const [task, setTask] = useState<string>("any");
+  const [hfQuery, setHfQuery] = useState("");
+  const [pulls, setPulls] = useState<Record<string, { label: string; pct: number | null; done: boolean; error?: string }>>({});
+  const [installing, setInstalling] = useState<string | null>(null);
+  const desktop = isDesktopShell();
+
+  const reload = () => {
+    api.aiLocalStatus().then(setStatus).catch(() => undefined);
+    api.aiCatalog(hfQuery, task).then(setCatalog).catch(() => undefined);
+  };
+
+  useEffect(() => {
+    reload();
+    if (desktop) shell.aiBackendStatus?.().then(setShellStatus).catch(() => undefined);
+    const un = shell.onInstallProgress?.((e: any) => {
+      if (e.done) {
+        setInstalling(null);
+        setTimeout(reload, 1500);
+      } else {
+        setInstalling(e.message || t.settings.installing);
+      }
+    });
+    return () => { un?.then((f: () => void) => f()).catch(() => undefined); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => { api.aiCatalog(hfQuery, task).then(setCatalog).catch(() => undefined); },
+    [task]);  // eslint-disable-line react-hooks/exhaustive-deps
+
+  const ollamaReachable = status?.ollama?.reachable || shellStatus?.ollama?.reachable;
+  const lmReachable = status?.lmstudio?.reachable || shellStatus?.lmstudio?.reachable;
+  const machine = status?.machine ?? shellStatus?.machine;
+
+  const machineLine = useMemo(() => {
+    if (!machine) return "";
+    const bits: string[] = [];
+    if (machine.ram_gb) bits.push(`${machine.ram_gb} GB RAM`);
+    if (machine.cpu_cores) bits.push(`${machine.cpu_cores} cores`);
+    const gpu = (machine.gpus || [])[0];
+    if (gpu) bits.push(`${gpu.name}${gpu.vram_gb ? ` ${gpu.vram_gb} GB` : ""}`);
+    if (machine.disk_free_gb) bits.push(`${machine.disk_free_gb} GB free`);
+    return bits.join(" · ");
+  }, [machine]);
+
+  const startBackend = async () => {
+    try {
+      if (desktop) await shell.aiBackendStart?.();
+      else await api.aiServeOllama();
+    } catch { /* surfaced by status refresh */ }
+    setTimeout(reload, 800);
+  };
+
+  const install = () => {
+    setInstalling(t.settings.installing);
+    shell.installOllama?.();
+  };
+
+  const pull = async (ref: string) => {
+    setPulls((p) => ({ ...p, [ref]: { label: t.settings.pulling, pct: null, done: false } }));
+    await api.aiPull(ref, (line) => {
+      setPulls((p) => ({
+        ...p,
+        [ref]: {
+          label: line.status ?? t.settings.pulling,
+          pct: line.total ? (line.completed ?? 0) / line.total : null,
+          done: !!line.done,
+          error: line.error,
+        },
+      }));
+    });
+    setTimeout(reload, 500);
+  };
+
+  const remove = async (name: string) => {
+    try { await api.aiDeleteModel(name); } catch { /* keep */ }
+    setTimeout(reload, 300);
+  };
+
+  return (
+    <div className="card">
+      <h3>{t.settings.aiBackend}</h3>
+      <p className="muted" style={{ fontSize: 12 }}>{t.settings.backendDesc}</p>
+
+      <dl className="kv">
+        <dt>Ollama</dt>
+        <dd>
+          <span className={`chip ${ollamaReachable ? "grounded" : ""}`}>
+            {ollamaReachable ? "running" : (status?.ollama?.exe_found || shellStatus?.ollama?.exe_found) ? "installed, not running" : "not installed"}
+          </span>
+          {!ollamaReachable && (
+            <span className="row" style={{ display: "inline-flex", marginLeft: 8 }}>
+              {(status?.ollama?.exe_found || shellStatus?.ollama?.exe_found) && (
+                <button className="btn secondary" onClick={startBackend}>{t.settings.startOllama}</button>
+              )}
+              {desktop && !(status?.ollama?.exe_found || shellStatus?.ollama?.exe_found) && (
+                <button className="btn secondary" onClick={install}>{t.settings.installOllama}</button>
+              )}
+              {!desktop && !(status?.ollama?.exe_found) && (
+                <span className="muted" style={{ fontSize: 12 }}> — ollama.com/install.sh</span>
+              )}
+            </span>
+          )}
+          {ollamaReachable && (status?.ollama?.installed?.length ?? 0) > 0 && (
+            <span className="evidence"> {status.ollama.installed.map((m: any) => m.name).join(", ")}</span>
+          )}
+        </dd>
+        <dt>LM Studio</dt>
+        <dd>
+          <span className={`chip ${lmReachable ? "grounded" : ""}`}>
+            {lmReachable ? "reachable" : "not found"}
+          </span>
+          <span className="muted" style={{ fontSize: 12 }}> — :1234 /v1 (models managed in LM Studio)</span>
+        </dd>
+        {machineLine && (
+          <>
+            <dt>{t.settings.machineSpecs}</dt>
+            <dd><span className="evidence">{machineLine}</span></dd>
+          </>
+        )}
+      </dl>
+      {installing && <p className="chip">{installing}</p>}
+
+      {status?.ollama?.reachable && (
+        <>
+          <h4 style={{ margin: "12px 0 4px" }}>{t.settings.recommended}</h4>
+          {(status.recommended ?? []).map((m: any) => (
+            <ModelRow key={m.model} model={m} t={t}
+                      onPull={pull} onRemove={remove}
+                      installed={(status?.ollama?.installed ?? []).some((i: any) => i.name === m.model || i.name.startsWith(m.model + ":"))}
+                      pullState={pulls[m.ref ?? m.model]} />
+          ))}
+        </>
+      )}
+
+      <h4 style={{ margin: "12px 0 4px" }}>{t.settings.catalog}</h4>
+      <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>
+        {(["any", "vision", "text", "embedding"] as const).map((k) => (
+          <button key={k} className={`btn secondary${task === k ? "" : ""}`}
+                  style={task === k ? { outline: "2px solid #2563eb" } : undefined}
+                  onClick={() => setTask(k)}>
+            {k === "any" ? t.settings.taskAll : k === "vision" ? t.settings.taskVision
+              : k === "text" ? t.settings.taskText : t.settings.taskEmbedding}
+          </button>
+        ))}
+      </div>
+      <div style={{ margin: "8px 0" }}>
+        <input
+          style={{ width: "100%", maxWidth: 420 }}
+          placeholder={t.settings.searchHf}
+          value={hfQuery}
+          onChange={(e) => setHfQuery(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") reload(); }}
+        />
+      </div>
+      {catalog && (
+        <>
+          {(catalog.curated ?? []).filter((m: any) => task === "any" || m.task === task).map((m: any) => (
+            <ModelRow key={m.model} model={m} t={t}
+                      onPull={pull} onRemove={remove}
+                      installed={(status?.ollama?.installed ?? []).some((i: any) => i.name === m.model || i.name.startsWith(m.model + ":"))}
+                      pullState={pulls[m.ref ?? m.model]} />
+          ))}
+          {(catalog.huggingface ?? []).map((m: any) => (
+            <ModelRow key={m.ref} model={m} t={t} onPull={pull} pullState={pulls[m.ref]} />
+          ))}
+          {hfQuery.trim() && (catalog.huggingface ?? []).length === 0 && (
+            <p className="muted" style={{ fontSize: 12 }}>No HuggingFace GGUF matches — try 'qwen', 'llama', 'embed'.</p>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
 
 export function SettingsView() {
   const { t, theme, setTheme } = useShell();
@@ -19,6 +247,8 @@ export function SettingsView() {
   return (
     <div>
       <h2>{t.nav.settings}</h2>
+
+      <AiBackendCard t={t} />
 
       <div className="card">
         <h3>{t.settings.aiProviders}</h3>

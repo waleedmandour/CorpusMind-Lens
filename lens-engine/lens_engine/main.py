@@ -154,6 +154,8 @@ def create_app() -> FastAPI:
         ("battery", ["router"]),
         ("compare", ["router"]),
         ("ocrtools", ["router"]),
+        ("local_models", ["router"]),
+        ("semantic", ["router"]),
         ("export", ["router"]),
         ("assistant", ["router"]),
         ("companion", ["router"]),

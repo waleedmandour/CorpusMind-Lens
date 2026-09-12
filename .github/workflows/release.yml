@@ -83,30 +83,30 @@ jobs:
           done
           curl -sf http://127.0.0.1:8798/api/v1/health
           echo
-          curl -sf http://127.0.0.1:8798/openapi.json | python3 -c '
-            import json, sys
-            paths = set(json.load(sys.stdin)["paths"].keys())
-            required = [
-                "/api/v1/projects",
-                "/api/v1/imagesets/{set_id}/images",
-                "/api/v1/imagesets/{set_id}/battery/full",
-                "/api/v1/discourse/frameworks",
-                "/api/v1/assistant/tools",
-                "/api/v1/settings",
-                "/api/v1/ai/local/status",
-                "/api/v1/ai/catalog",
-                "/api/v1/imagesets/{set_id}/semantic-search",
-                "/api/v1/projects/{project_id}/posts",
-                "/api/v1/projects/{project_id}/social/import",
-                "/api/v1/projects/{project_id}/social/fetch",
-                "/api/v1/projects/{project_id}/social-export/posts",
-            ]
-            missing = [p for p in required if p not in paths]
-            print(f"frozen sidecar exposes {len(paths)} paths")
-            if missing:
-                print("MISSING ROUTES:", missing)
-                sys.exit(1)
-          '
+          curl -sf http://127.0.0.1:8798/openapi.json | python3 - <<'PY'
+          import json, sys
+          paths = set(json.load(sys.stdin)["paths"].keys())
+          required = [
+              "/api/v1/projects",
+              "/api/v1/imagesets/{set_id}/images",
+              "/api/v1/imagesets/{set_id}/battery/full",
+              "/api/v1/discourse/frameworks",
+              "/api/v1/assistant/tools",
+              "/api/v1/settings",
+              "/api/v1/ai/local/status",
+              "/api/v1/ai/catalog",
+              "/api/v1/imagesets/{set_id}/semantic-search",
+              "/api/v1/projects/{project_id}/posts",
+              "/api/v1/projects/{project_id}/social/import",
+              "/api/v1/projects/{project_id}/social/fetch",
+              "/api/v1/projects/{project_id}/social-export/posts",
+          ]
+          missing = [p for p in required if p not in paths]
+          print(f"frozen sidecar exposes {len(paths)} paths")
+          if missing:
+              print("MISSING ROUTES:", missing)
+              sys.exit(1)
+          PY
           if grep -q "router_not_registered" .smoke.log; then
             echo "::error::router_not_registered in frozen sidecar log"
             cat .smoke.log

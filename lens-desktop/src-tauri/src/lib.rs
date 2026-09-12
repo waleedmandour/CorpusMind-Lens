@@ -271,9 +271,12 @@ fn main() {
             use tauri::RunEvent;
             if let RunEvent::Exit = event {
                 let state: State<EngineManager> = app.state();
-                if let Some(mut child) = state.child.lock().unwrap().take() {
+                // Hoist the take() out of the if-let: newer rustc's if-let
+                // temporary scoping rejects the chained lock().take() form.
+                let mut taken = state.child.lock().unwrap().take();
+                if let Some(mut child) = taken.as_mut() {
                     info!("engine exit — killing sidecar");
-                    kill_child(&mut child);
+                    kill_child(child);
                 }
             }
         });

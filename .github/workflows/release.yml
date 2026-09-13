@@ -136,11 +136,24 @@ jobs:
         working-directory: lens-engine
         run: |
           # Calling setup-python twice does not reliably move PATH, so drive
-          # the x64 interpreter by its explicit tool-cache path. The frozen
-          # binary inherits the interpreter's architecture (x86_64).
-          X64_PY=$(find "${RUNNER_TOOL_CACHE:-$HOME/hostedtoolcache}/Python" \
-                       -path '*x64/bin/python3' 2>/dev/null | head -1)
-          if [ -z "$X64_PY" ]; then echo "x64 CPython not found in tool cache"; exit 1; fi
+          # the x64 interpreter explicitly. setup-python exports
+          # pythonLocation pointing at the x64 tool-cache folder for this
+          # step (verified in the run logs). Fallback: find -L, because the
+          # tool-cache bin/ entries are symlinks into the Python.framework
+          # and BSD find does not descend into symlinked dirs by default —
+          # the plain find here matched nothing on the first v0.3.1 runs.
+          X64_PY=""
+          if [ -n "${pythonLocation:-}" ] && [ -x "${pythonLocation}/bin/python3" ]; then
+            X64_PY="${pythonLocation}/bin/python3"
+          else
+            X64_PY=$(find -L "${RUNNER_TOOL_CACHE:-$HOME/hostedtoolcache}/Python" \
+                         -path '*x64/bin/python3' 2>/dev/null | head -1)
+          fi
+          if [ -z "$X64_PY" ] || [ ! -x "$X64_PY" ]; then
+            echo "x64 CPython not found (pythonLocation='${pythonLocation:-unset}')"
+            ls -la "${RUNNER_TOOL_CACHE:-$HOME/hostedtoolcache}/Python" 2>/dev/null || true
+            exit 1
+          fi
           echo "x64 interpreter: $X64_PY"
           "$X64_PY" -c "import platform; assert platform.machine() == 'x86_64', platform.machine()"
           "$X64_PY" -m pip install pyinstaller ".[models]" --extra-index-url https://download.pytorch.org/whl/cpu

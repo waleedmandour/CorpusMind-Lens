@@ -2,9 +2,11 @@
 from __future__ import annotations
 
 from fastapi import APIRouter
+from pydantic import BaseModel
 
 from .. import __version__
 from ..config import get_settings, reset_settings
+from ..models_defaults import model_settings_snapshot, set_model_overrides
 from ..storage.encryption import key_fingerprint
 from ..vision.facial import ETHICS_NOTICE
 
@@ -43,3 +45,35 @@ async def ethics() -> dict:
         "interpretive_claims": "Always framework-attributed hypotheses with cited evidence.",
         "notice": ETHICS_NOTICE,
     }
+
+
+# -- v0.3 default-model picker (DB-backed overrides, env vars still win) ---
+
+class ModelDefaultsPayload(BaseModel):
+    vision_ocr_model: str | None = None
+    embed_model: str | None = None
+    chat_model: str | None = None
+    clear: list[str] = []
+
+
+@router.get("/settings/models")
+async def get_model_defaults() -> dict:
+    snap = model_settings_snapshot()
+    snap["note"] = ("Effective default models for vision OCR, semantic-search "
+                    "embeddings and the Assistant. Env vars "
+                    "(LENS_VISION_OCR_MODEL / LENS_EMBED_MODEL) apply when no "
+                    "UI override is stored; per-request model arguments always win.")
+    return snap
+
+
+@router.put("/settings/models")
+async def put_model_defaults(payload: ModelDefaultsPayload) -> dict:
+    updates = {k: v for k, v in {
+        "vision_ocr": payload.vision_ocr_model,
+        "embed": payload.embed_model,
+        "chat": payload.chat_model,
+    }.items() if v is not None}
+    set_model_overrides(updates, clear=payload.clear)
+    snap = model_settings_snapshot()
+    snap["saved"] = True
+    return snap

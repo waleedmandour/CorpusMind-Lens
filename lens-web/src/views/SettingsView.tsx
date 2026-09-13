@@ -273,6 +273,122 @@ function AiBackendCard({ t }: { t: any }) {
   );
 }
 
+function ModelDefaultsCard({ t }: { t: any }) {
+  const [snap, setSnap] = useState<any>(null);
+  const [installed, setInstalled] = useState<string[]>([]);
+  const [saved, setSaved] = useState(false);
+
+  const reload = () => {
+    api.modelDefaults().then(setSnap).catch(() => undefined);
+    api.aiLocalStatus().then((s) => {
+      setInstalled((s?.ollama?.installed ?? []).map((m: any) => m.name));
+    }).catch(() => undefined);
+  };
+  useEffect(reload, []);
+
+  const put = async (field: string, value: string) => {
+    if (!value) return;
+    try {
+      await api.putModelDefaults({ [field]: value } as any);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+      reload();
+    } catch { /* status refresh reports it */ }
+  };
+
+  const picker = (field: string, label: string, current: string) => (
+    <>
+      <dt>{label}</dt>
+      <dd>
+        <select value={current} onChange={(e) => put(field, e.target.value)}
+                style={{ padding: 7, borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface-2)", maxWidth: 260 }}>
+          <option value="" disabled>{label}…</option>
+          {installed.map((m) => <option key={m} value={m}>{m}</option>)}
+        </select>
+      </dd>
+    </>
+  );
+
+  return (
+    <div className="card">
+      <h3>{t.settings.modelDefaults}</h3>
+      <p className="muted" style={{ fontSize: 12 }}>{t.settings.modelDefaultsDesc}</p>
+      {installed.length === 0 ? (
+        <p className="muted" style={{ fontSize: 13 }}>{t.settings.mdNoModels}</p>
+      ) : snap ? (
+        <dl className="kv">
+          {picker("vision_ocr_model", t.settings.mdVision, snap.vision_ocr_model)}
+          {picker("embed_model", t.settings.mdEmbed, snap.embed_model)}
+          {picker("chat_model", t.settings.mdChat, snap.chat_model)}
+        </dl>
+      ) : null}
+      {saved && <span className="chip grounded">{t.settings.mdSaved}</span>}
+    </div>
+  );
+}
+
+function EngineDiagnosticsCard({ t }: { t: any }) {
+  const desktop = isDesktopShell();
+  const [busy, setBusy] = useState(false);
+  const [logs, setLogs] = useState<string | null>(null);
+
+  if (!desktop) {
+    return (
+      <div className="card">
+        <h3>{t.settings.diagnostics}</h3>
+        <p className="muted" style={{ fontSize: 12, marginBottom: 0 }}>{t.settings.diagDesktopOnly}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="card">
+      <h3>{t.settings.diagnostics}</h3>
+      <p className="muted" style={{ fontSize: 12 }}>{t.settings.diagnosticsDesc}</p>
+      <div className="row" style={{ flexWrap: "wrap" }}>
+        <button className="btn secondary" disabled={busy}
+                onClick={async () => {
+                  setBusy(true);
+                  try {
+                    await shell.restartEngine();
+                  } catch { /* health chip reports the outcome */ }
+                  setBusy(false);
+                }}>
+          {busy ? t.settings.diagRestarting : t.settings.diagRestart}
+        </button>
+        <button className="btn secondary"
+                onClick={async () => {
+                  if (logs !== null) { setLogs(null); return; }
+                  try {
+                    const tail = await shell.engineLogs();
+                    setLogs(String(tail ?? ""));
+                  } catch { setLogs(""); }
+                }}>
+          {logs === null ? t.settings.diagLogs : t.settings.diagHideLogs}
+        </button>
+        {logs !== null && (
+          <button className="btn secondary"
+                  onClick={() => {
+                    navigator.clipboard?.writeText(logs).then(
+                      () => setTimeout(() => undefined, 0),
+                      () => undefined,
+                    );
+                  }}>
+            {t.settings.diagCopy}
+          </button>
+        )}
+      </div>
+      {logs !== null && (
+        <pre style={{
+          marginTop: 10, maxHeight: 260, overflow: "auto", fontSize: 11.5,
+          background: "var(--surface-2)", border: "1px solid var(--border)",
+          borderRadius: 8, padding: 10, whiteSpace: "pre-wrap",
+        }}>{logs || "(empty log)"}</pre>
+      )}
+    </div>
+  );
+}
+
 export function SettingsView() {
   const shellCtx = useShell();
   const { t, theme, setTheme } = shellCtx;
@@ -293,6 +409,8 @@ export function SettingsView() {
       <h2>{t.nav.settings}</h2>
 
       <AiBackendCard t={t} />
+
+      <ModelDefaultsCard t={t} />
 
       <CapabilitiesCard t={t} />
 
@@ -368,6 +486,8 @@ export function SettingsView() {
           </button>
         </div>
       </div>
+
+      <EngineDiagnosticsCard t={t} />
 
       {settings && (
         <div className="card">

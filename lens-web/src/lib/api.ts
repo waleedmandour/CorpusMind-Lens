@@ -22,11 +22,34 @@ export class LensApiError extends Error {
   }
 }
 
+// ── Task-bar error capture (v0.3 Smart Troubleshooting) ───────────────────
+// One choke point: every failed API call reports (message, status, endpoint)
+// to the task-bar issue store, which dedupes and displays it. Registered
+// from state/taskbar.ts to avoid a circular import.
+type ApiErrorListener = (info: { message: string; status: number | "NETWORK"; endpoint: string }) => void;
+let apiErrorListener: ApiErrorListener | null = null;
+export function setApiErrorListener(fn: ApiErrorListener | null): void {
+  apiErrorListener = fn;
+}
+function reportApiError(status: number | "NETWORK", path: string, message: string): void {
+  try {
+    apiErrorListener?.({ message, status, endpoint: path.replace(/^\/api\/v1/, "") });
+  } catch {
+    /* the task bar must never break a request path */
+  }
+}
+
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
-  const r = await fetch(`${BASE}/api/v1${path}`, {
-    headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
-    ...init,
-  });
+  let r: Response;
+  try {
+    r = await fetch(`${BASE}/api/v1${path}`, {
+      headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
+      ...init,
+    });
+  } catch (e: any) {
+    reportApiError("NETWORK", path, e?.message ?? "network error");
+    throw e;
+  }
   if (!r.ok) {
     let detail = r.statusText;
     try {
@@ -35,6 +58,7 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
     } catch {
       /* keep statusText */
     }
+    reportApiError(r.status, path, String(detail));
     throw new LensApiError(r.status, detail);
   }
   return r.json() as Promise<T>;
@@ -68,6 +92,7 @@ export const api = {
 
   listImages: (setId: string) => req<any[]>(`/imagesets/${setId}/images`),
   getImage: (id: string) => req<any>(`/images/${id}`),
+  deleteImage: (id: string) => req<any>(`/images/${id}`, { method: "DELETE" }),
   imageThumbnail: (id: string) => `${BASE}/api/v1/images/${id}/thumbnail`,
   uploadImages: async (setId: string, files: File[], ocrLanguage?: string) => {
     const form = new FormData();
@@ -112,6 +137,44 @@ export const api = {
   ocrWordlist: (setId: string) => req<any>(`/imagesets/${setId}/ocrtools/wordlist`),
   ocrKwic: (setId: string, query: string) =>
     req<any>(`/imagesets/${setId}/ocrtools/kwic?query=${encodeURIComponent(query)}`),
+
+  // ── v0.3 Text Analysis (AntConc audit) ─────────────────────────────────
+  textWordlist: (setId: string, params: Record<string, string | number> = {}) =>
+    req<any>(`/imagesets/${setId}/text/wordlist?${new URLSearchParams(
+      Object.entries(params).map(([k, v]) => [k, String(v)]))}`),
+  textConcordance: (setId: string, params: Record<string, string | number | boolean>) =>
+    req<any>(`/imagesets/${setId}/text/concordance?${new URLSearchParams(
+      Object.entries(params).map(([k, v]) => [k, String(v)]))}`),
+  textCollocations: (setId: string, params: Record<string, string | number | boolean>) =>
+    req<any>(`/imagesets/${setId}/text/collocations?${new URLSearchParams(
+      Object.entries(params).map(([k, v]) => [k, String(v)]))}`),
+  textNgrams: (setId: string, params: Record<string, string | number>) =>
+    req<any>(`/imagesets/${setId}/text/ngrams?${new URLSearchParams(
+      Object.entries(params).map(([k, v]) => [k, String(v)]))}`),
+  textDispersion: (setId: string, stoplist: string) =>
+    req<any>(`/imagesets/${setId}/text/dispersion?stoplist=${encodeURIComponent(stoplist)}`),
+  textSketch: (setId: string, word: string) =>
+    req<any>(`/imagesets/${setId}/text/sketch?word=${encodeURIComponent(word)}`),
+  textReferences: (setId: string) => req<any>(`/imagesets/${setId}/text/references`),
+  textKeynessReference: (setId: string, reference: string, stoplist: string) =>
+    req<any>(`/imagesets/${setId}/text/keyness-reference?reference=${encodeURIComponent(reference)}&stoplist=${encodeURIComponent(stoplist)}`),
+  textExportUrl: (setId: string, what: string, format: string, params: Record<string, string | number | boolean>) => {
+    const qs = new URLSearchParams({ format, ...Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)])) });
+    return `${BASE}/api/v1/imagesets/${setId}/text/${what}?${qs.toString()}`;
+  },
+  listStoplists: (projectId: string) => req<any>(`/projects/${projectId}/stoplists`),
+  createStoplist: (projectId: string, name: string, items: string[]) =>
+    req<any>(`/projects/${projectId}/stoplists`, { method: "POST", body: JSON.stringify({ name, items }) }),
+  deleteStoplist: (projectId: string, name: string) =>
+    req<any>(`/projects/${projectId}/stoplists/${encodeURIComponent(name)}`, { method: "DELETE" }),
+
+  // ── v0.3 default models + Smart Troubleshooting ─────────────────────────
+  modelDefaults: () => req<any>("/settings/models"),
+  putModelDefaults: (payload: { vision_ocr_model?: string; embed_model?: string; chat_model?: string; clear?: string[] }) =>
+    req<any>("/settings/models", { method: "PUT", body: JSON.stringify(payload) }),
+  troubleshootStatus: () => req<any>("/troubleshoot/status"),
+  troubleshootInterpret: (payload: { error_message: string; error_code?: string | number | null; endpoint?: string | null; context?: string | null }) =>
+    req<any>("/troubleshoot/interpret", { method: "POST", body: JSON.stringify(payload) }),
 
   exportSet: async (setId: string, format: string) => {
     const r = await fetch(`${BASE}/api/v1/imagesets/${setId}/export?format=${format}`);
@@ -210,6 +273,8 @@ export function isDesktopShell(): boolean {
 export const shell = {
   engineStatus: () => (window as any).__TAURI__?.core.invoke("engine_status"),
   startEngine: () => (window as any).__TAURI__?.core.invoke("start_engine"),
+  restartEngine: () => (window as any).__TAURI__?.core.invoke("restart_engine"),
+  engineLogs: () => (window as any).__TAURI__?.core.invoke("engine_logs"),
   aiBackendStatus: () => (window as any).__TAURI__?.core.invoke("ai_backend_status"),
   aiBackendStart: () => (window as any).__TAURI__?.core.invoke("ai_backend_start"),
   aiBackendRestart: () => (window as any).__TAURI__?.core.invoke("ai_backend_restart"),

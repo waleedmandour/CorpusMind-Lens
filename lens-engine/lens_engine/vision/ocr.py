@@ -130,7 +130,9 @@ async def run_vision_ocr(raw: bytes, *, model: str | None = None,
             log.info("vision_ocr_unavailable", extra={"reason": "ollama not reachable"})
             return OCRResult(text="", confidence=0.0, word_count=0,
                              engine="vision-model-unreachable")
-    model = model or get_settings().vision_ocr_model
+    from ..models_defaults import effective_model
+
+    model = model or effective_model("vision_ocr")
 
     try:
         resp = await provider.chat(

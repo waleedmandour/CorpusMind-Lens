@@ -95,6 +95,22 @@ CREATE INDEX IF NOT EXISTS idx_posts_project ON posts(project_id);
 CREATE INDEX IF NOT EXISTS idx_posts_platform ON posts(project_id, platform);
 CREATE INDEX IF NOT EXISTS idx_posts_time ON posts(project_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_sources_project ON social_sources(project_id);
+CREATE TABLE IF NOT EXISTS stoplists (
+    id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    items_json TEXT DEFAULT '[]',
+    built_in INTEGER DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE(project_id, name)
+);
+CREATE INDEX IF NOT EXISTS idx_stoplists_project ON stoplists(project_id);
+CREATE TABLE IF NOT EXISTS app_settings (
+    key TEXT PRIMARY KEY,
+    value_json TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
 """
 
 
@@ -375,6 +391,78 @@ class Store:
         with self._tx() as c:
             cur = c.execute("DELETE FROM social_sources WHERE id=?", (source_id,))
         return cur.rowcount > 0
+
+    # -- Stoplists (v0.3: editable EN/AR stoplists per project) --------------
+    def list_stoplists(self, project_id: str) -> list[dict[str, Any]]:
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT * FROM stoplists WHERE project_id=? ORDER BY built_in, name",
+                (project_id,),
+            ).fetchall()
+        out = []
+        for r in rows:
+            d = self._row_to_dict(r)
+            d["items"] = json.loads(d.pop("items_json") or "[]")
+            d["built_in"] = bool(d["built_in"])
+            out.append(d)
+        return out
+
+    def get_stoplist(self, project_id: str, name: str) -> dict[str, Any] | None:
+        with self._lock:
+            r = self._conn.execute(
+                "SELECT * FROM stoplists WHERE project_id=? AND name=?", (project_id, name)
+            ).fetchone()
+        if not r:
+            return None
+        d = self._row_to_dict(r)
+        d["items"] = json.loads(d.pop("items_json") or "[]")
+        d["built_in"] = bool(d["built_in"])
+        return d
+
+    def upsert_stoplist(
+        self, project_id: str, name: str, items: list[str], *, built_in: bool = False
+    ) -> dict[str, Any]:
+        now = _now_iso()
+        with self._tx() as c:
+            c.execute(
+                "INSERT INTO stoplists (id, project_id, name, items_json, built_in, created_at, updated_at)"
+                " VALUES (?,?,?,?,?,?,?)"
+                " ON CONFLICT(project_id, name) DO UPDATE SET"
+                " items_json=excluded.items_json, updated_at=excluded.updated_at",
+                (new_id(), project_id, name, dump_json(sorted(set(items))), int(built_in), now, now),
+            )
+            r = c.execute(
+                "SELECT * FROM stoplists WHERE project_id=? AND name=?", (project_id, name)
+            ).fetchone()
+        d = self._row_to_dict(r)
+        d["items"] = json.loads(d.pop("items_json") or "[]")
+        d["built_in"] = bool(d["built_in"])
+        return d
+
+    def delete_stoplist(self, project_id: str, name: str) -> bool:
+        with self._tx() as c:
+            cur = c.execute(
+                "DELETE FROM stoplists WHERE project_id=? AND name=? AND built_in=0",
+                (project_id, name),
+            )
+        return cur.rowcount > 0
+
+    # -- App settings (v0.3: DB-backed overrides, e.g. default AI models) ----
+    def get_setting(self, key: str) -> Any | None:
+        with self._lock:
+            r = self._conn.execute(
+                "SELECT value_json FROM app_settings WHERE key=?", (key,)
+            ).fetchone()
+        return json.loads(r["value_json"]) if r else None
+
+    def set_setting(self, key: str, value: Any) -> None:
+        with self._tx() as c:
+            c.execute(
+                "INSERT INTO app_settings (key, value_json, updated_at) VALUES (?,?,?)"
+                " ON CONFLICT(key) DO UPDATE SET"
+                " value_json=excluded.value_json, updated_at=excluded.updated_at",
+                (key, dump_json(value), _now_iso()),
+            )
 
 
 def _now_iso() -> str:

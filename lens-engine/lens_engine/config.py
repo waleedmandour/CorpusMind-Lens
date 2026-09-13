@@ -54,6 +54,26 @@ def _default_frameworks_dir() -> Path:
     return root / "lens-engine" / "reference-data" / "frameworks"
 
 
+def _default_reference_dir() -> Path:
+    """Bundled reference frequency tables (v0.3 reference-corpus keyness).
+
+    Same resolution order as the frameworks dir: env override, PyInstaller
+    unpack dir, repo checkout, then a packaged fallback next to the package.
+    """
+    env = os.environ.get("LENS_REFERENCE_DIR")
+    if env:
+        return Path(env)
+    if getattr(sys, "frozen", False):
+        cand = _frozen_base() / "reference-data" / "reference-corpora"
+        if cand.is_dir():
+            return cand
+    root = _repo_root()
+    cand = root / "reference-data" / "reference-corpora"
+    if cand.is_dir():
+        return cand
+    return root / "lens-engine" / "reference-data" / "reference-corpora"
+
+
 @dataclass(slots=True)
 class Settings:
     host: str = field(default_factory=lambda: os.environ.get("LENS_HOST", "127.0.0.1"))
@@ -71,6 +91,7 @@ class Settings:
         default_factory=lambda: os.environ.get("LENS_ENCRYPTION_KEY") or None
     )
     frameworks_dir: Path = field(default_factory=_default_frameworks_dir)
+    reference_dir: Path = field(default_factory=_default_reference_dir)
     default_ocr_language: str = field(
         default_factory=lambda: os.environ.get("LENS_OCR_LANGUAGE", "eng")
     )

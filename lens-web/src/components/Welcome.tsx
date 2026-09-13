@@ -6,7 +6,8 @@ import { api } from "../lib/api";
  * Three-page welcome window (v0.2 UX rebuild), shown on first launch of the
  * new interface and replayable from Settings:
  *   1. What CorpusMind Lens is: local-first multimodal corpus analysis.
- *   2. The workspace: projects, image sets, social corpora, workbench.
+ *   2. The workspace: the full functional menu in workflow order (Images,
+ *      Social Media, Text Analysis, Vision Analysis, Export) + the task bar.
  *   3. Optional local AI: Ollama / LM Studio, or none at all.
  * Page 3 offers a one-click Ollama install in the desktop shell; everything
  * degrades honestly when skipped.

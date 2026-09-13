@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "lens-engine"
-version = "0.2.1"
+version = "0.3.0"
 description = "CorpusMind Lens engine — local-first visual & multimodal corpus analysis (FastAPI)"
 readme = "README.md"
 requires-python = ">=3.11"

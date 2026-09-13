@@ -23,7 +23,7 @@ authors:
   - family-names: Ibrahim
     given-names: Wesam
     affiliation: Princess Nourah Bint Abdulrahman University
-version: 0.2.1
+version: 0.3.0
 doi: 10.5281/zenodo.21673083
 license: AGPL-3.0-only
 repository-code: "https://github.com/waleedmandour/CorpusMind-Lens"
@@ -36,4 +36,4 @@ keywords:
   - image corpus
   - computational visual semiotics
   - distant viewing
-date-released: "2026-09-12"
+date-released: "2026-09-13"

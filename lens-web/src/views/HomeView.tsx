@@ -1,8 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import { useShell } from "../shell";
+import { useShell, type ViewId } from "../shell";
 import { api, isDesktopShell, shell } from "../lib/api";
 
-export function OverviewView() {
+/**
+ * Home (v0.3) — the workflow landing: three numbered phases that mirror the
+ * menu order, then project/set management. The analysis pages run on the
+ * selected set, so management stays in one obvious place.
+ */
+export function HomeView() {
   const { t, setActiveSetId, setView, toast } = useShell();
   const [projects, setProjects] = useState<any[]>([]);
   const [name, setName] = useState("");
@@ -56,6 +61,7 @@ export function OverviewView() {
     api.providersStatus()
       .then((s) => setAiMissing(!s.ollama.reachable && !s.lmstudio.reachable))
       .catch(() => setAiMissing(false));
+    refresh().catch(() => undefined);
     return () => {
       aliveRef.current = false;
     };
@@ -65,6 +71,17 @@ export function OverviewView() {
   const dismiss = () => {
     localStorage.setItem("lens.ai-banner-dismissed", "1");
     setBannerDismissed(true);
+  };
+
+  const workflow: { title: string; body: string; cta: string; view: ViewId; glyph: string }[] = [
+    { title: t.overview.step1Title, body: t.overview.step1Body, cta: t.overview.step1Cta, view: "images", glyph: "❏" },
+    { title: t.overview.step2Title, body: t.overview.step2Body, cta: t.overview.step2Cta, view: "text", glyph: "⚖" },
+    { title: t.overview.step3Title, body: t.overview.step3Body, cta: t.overview.step3Cta, view: "export", glyph: "⇪" },
+  ];
+
+  const openImages = (setId: string) => {
+    setActiveSetId(setId);
+    setView("images");
   };
 
   return (
@@ -116,6 +133,20 @@ export function OverviewView() {
       )}
 
       <div className="card">
+        <h3>{t.overview.workflow}</h3>
+        <div className="lens-workflow">
+          {workflow.map((w) => (
+            <div key={w.title} className="lens-wf-card">
+              <div className="lens-wf-glyph" aria-hidden>{w.glyph}</div>
+              <strong>{w.title}</strong>
+              <p className="muted" style={{ fontSize: 12.5, lineHeight: 1.55 }}>{w.body}</p>
+              <button className="btn secondary" onClick={() => setView(w.view)}>{w.cta} →</button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="card">
         <h3>{t.overview.projects}</h3>
         <div className="row" style={{ marginBottom: 12 }}>
           <input
@@ -149,7 +180,7 @@ export function OverviewView() {
           <div key={p.id} style={{ marginBottom: 14 }}>
             <div className="row">
               <strong>{p.name}</strong>
-              <span className="chip">{(sets[p.id] ?? []).length} {t.common.images}</span>
+              <span className="chip">{(sets[p.id] ?? []).length} {t.overview.setsIn}</span>
               <button
                 className="btn secondary"
                 onClick={async () => {
@@ -158,7 +189,7 @@ export function OverviewView() {
                     name: `${p.name} — ${new Date().toISOString().slice(0, 10)}`,
                   });
                   setActiveSetId(s.id);
-                  setView("workbench");
+                  setView("images");
                 }}
               >
                 {t.overview.createSet}
@@ -167,14 +198,8 @@ export function OverviewView() {
             {(sets[p.id] ?? []).map((s) => (
               <div className="row" key={s.id} style={{ marginInlineStart: 14, marginTop: 6 }}>
                 <span>{s.name}</span>
-                <button
-                  className="btn secondary"
-                  onClick={() => {
-                    setActiveSetId(s.id);
-                    setView("workbench");
-                  }}
-                >
-                  {t.nav.workbench} →
+                <button className="btn secondary" onClick={() => openImages(s.id)}>
+                  {t.nav.images} →
                 </button>
               </div>
             ))}

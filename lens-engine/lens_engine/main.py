@@ -163,6 +163,8 @@ def create_app() -> FastAPI:
         semantic,
         settings_router,
         social,
+        textcorpus,
+        troubleshoot,
         vision_ai,
     )
 
@@ -181,6 +183,8 @@ def create_app() -> FastAPI:
         battery.router,
         compare.router,
         ocrtools.router,
+        textcorpus.router,
+        troubleshoot.router,
         local_models.router,
         semantic.router,
         export.router,

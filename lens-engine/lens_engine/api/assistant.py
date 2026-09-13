@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from ..ai.audit import audit_event, read_audit
+from ..models_defaults import effective_model
 from ..ai.providers import Message, get_provider
 from ..ai.tools import run_tool, tool_manifest
 from ..config import get_settings
@@ -68,7 +69,7 @@ async def ask(body: AskBody) -> dict:
                  f"Which tools (with arguments) should run to answer this grounded? "
                  f"Reply ONLY with JSON: [{{\"tool\": name, \"args\": {{...}}}}]. "
                  f"If none are needed, reply []."))],
-            model=body.model or "llama3.1",
+            model=body.model or effective_model("chat"),
         )
     except Exception as e:
         raise HTTPException(502, f"Assistant planner unreachable ({body.provider_id}): {e}")
@@ -103,7 +104,7 @@ async def ask(body: AskBody) -> dict:
                  f"Question: {body.question}\n\nTool evidence (grounded):\n{evidence_block}\n\n"
                  f"Answer now. Cite the tool names that ground each claim. Prefix any "
                  f"ungrounded statement with [ungrounded]."))],
-            model=body.model or "llama3.1",
+            model=body.model or effective_model("chat"),
         )
     except Exception as e:
         raise HTTPException(502, f"Assistant writer unreachable: {e}")

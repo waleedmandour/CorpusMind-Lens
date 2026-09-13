@@ -72,6 +72,10 @@ The Lens design tokens (colour system, ribbon shell conventions) are reimplement
 | Asset | License | Use |
 |---|---|---|
 | `reference-data/frameworks/*.yaml` (12 files) | AGPL-3.0-only (project-authored; ported verbatim from CorpusMind) | Theoretical-lens prompt templates |
+| `reference-data/reference-corpora/en/be06-freq-top1000.tsv` | Derived from open frequency data; ported from CorpusMind (AGPL-3.0 project) with attribution headers preserved | English reference frequency table for keyness |
+| `reference-data/reference-corpora/en/leipzig-english-news-top100.tsv` | CC BY 4.0 (Leipzig Corpora Collection; Goldhahn, Eckart & Quasthoff 2012) | English reference frequency table for keyness |
+| `reference-data/reference-corpora/ar/camel-arabic-top1000.tsv` | CC BY 4.0 (derived from Leipzig `ara_news_2022_10K`) | Arabic reference frequency table for keyness |
+| `reference-data/reference-corpora/ar/quranic-arabic-freq.tsv` | Public domain (derived from Quran text) | Classical Arabic reference frequency table |
 
 > Deliberately **not** included: the parent project's USAS lexicon (`reference-data/tagsets/`, CC BY-NC-SA) — it belongs to the text product and has no reason to live in Lens.
 

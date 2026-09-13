@@ -332,6 +332,45 @@ fn start_engine(
     spawn_engine(&app, &state, port)
 }
 
+/// v0.3: full sidecar restart for the Settings diagnostics card. Kills the
+/// current engine child (if we own one), waits for the port to drain, then
+/// re-runs the same spawn discipline as startup. The frontend's health chip
+/// and task bar reflect the outcome; no engine state is lost (all corpora
+/// live in SQLite under the data dir).
+#[tauri::command]
+fn restart_engine(
+    app: tauri::AppHandle,
+    state: State<EngineManager>,
+) -> Result<serde_json::Value, String> {
+    {
+        let mut guard = state.child.lock().unwrap();
+        if let Some(child) = guard.as_mut() {
+            info!("engine restart requested — killing sidecar");
+            kill_child(child);
+        }
+        *guard = None;
+    }
+    // Give the OS a beat to release the listening socket before picking.
+    std::thread::sleep(Duration::from_millis(500));
+    let port = pick_port();
+    spawn_engine(&app, &state, port)
+}
+
+/// v0.3: tail of the engine log (last 16 KiB) for the Settings diagnostics
+/// viewer. The log file always exists once the shell has spawned an engine;
+/// a missing file simply means no engine was started yet.
+#[tauri::command]
+fn engine_logs() -> Result<String, String> {
+    let path = log_file();
+    match std::fs::read(&path) {
+        Ok(bytes) => {
+            let start = bytes.len().saturating_sub(16 * 1024);
+            Ok(String::from_utf8_lossy(&bytes[start..]).into_owned())
+        }
+        Err(e) => Err(format!("cannot read engine log ({}): {e}", path.display())),
+    }
+}
+
 fn data_dir() -> String {
     // Per-OS app-data dir; tauri's path API needs an AppHandle, so keep the
     // sidecar's default convention: $HOME/.lens-engine-data
@@ -364,6 +403,8 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             engine_status,
             start_engine,
+            restart_engine,
+            engine_logs,
             ai_backend::ai_backend_status,
             ai_backend::ai_backend_start,
             ai_backend::ai_backend_restart,

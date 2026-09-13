@@ -3,7 +3,23 @@ import { isRTL, STRINGS, type Lang } from "./i18n/strings";
 import { engineUrl, LENS_VERSION } from "./lib/api";
 import { WelcomeFlow } from "./components/Welcome";
 
-export type ViewId = "overview" | "imagesets" | "workbench" | "social" | "assistant" | "settings";
+/**
+ * v0.3 navigation — the full functional menu, ordered by the research
+ * workflow. Every tool has its own page; the user chooses what to do.
+ *   Start        → home
+ *   Build corpus → images, social
+ *   Analyse      → text, vision, assistant
+ *   Share        → export
+ *   App          → settings, guide, about
+ */
+export type ViewId =
+  | "home" | "images" | "text" | "vision" | "social" | "assistant"
+  | "export" | "settings" | "guide" | "about";
+
+export const VIEW_IDS: ViewId[] = [
+  "home", "images", "text", "vision", "social", "assistant",
+  "export", "settings", "guide", "about",
+];
 
 interface Toast {
   id: number;
@@ -36,18 +52,33 @@ export function useShell(): ShellState {
   return v;
 }
 
+/**
+ * Command palette (Ctrl/Cmd+K) — v0.3 extends the parent-app registry
+ * pattern: every page, plus theme and language toggles. There is no
+ * toolbar button for it; the shortcut is documented in the guide.
+ */
 function CommandPalette({ onClose }: { onClose: () => void }) {
-  const { setView, t } = useShell();
+  const { setView, t, theme, setTheme, lang, setLang } = useShell();
   const [q, setQ] = useState("");
-  const targets: [string, ViewId][] = [
-    [t.nav.overview, "overview"],
-    [t.nav.imageSets, "imagesets"],
-    [t.nav.workbench, "workbench"],
-    [t.nav.social, "social"],
-    [t.nav.assistant, "assistant"],
-    [t.nav.settings, "settings"],
+  const nav = VIEW_IDS.map((id) => ({
+    key: `nav:${id}`,
+    label: t.nav[id],
+    run: () => setView(id),
+  }));
+  const actions = [
+    {
+      key: "theme",
+      label: theme === "dark" ? `${t.settings.theme}: ${t.common.all} → ☀` : `${t.settings.theme}: ☾`,
+      run: () => setTheme(theme === "dark" ? "light" : "dark"),
+    },
+    {
+      key: "lang",
+      label: lang === "en" ? "العربية" : "English",
+      run: () => setLang(lang === "en" ? "ar" : "en"),
+    },
   ];
-  const hits = targets.filter(([label]) => label.toLowerCase().includes(q.toLowerCase()));
+  const all = [...nav, ...actions];
+  const hits = all.filter((a) => a.label.toLowerCase().includes(q.toLowerCase()));
   return (
     <div
       role="dialog"
@@ -58,29 +89,30 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
         display: "grid", placeItems: "start center", paddingTop: "12vh", zIndex: 50,
       }}
     >
-      <div className="card" style={{ width: 420, margin: 0 }} onClick={(e) => e.stopPropagation()}>
+      <div className="card" style={{ width: 440, margin: 0 }} onClick={(e) => e.stopPropagation()}>
         <input
           autoFocus
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="⌘K"
+          placeholder={t.guide.s9Body.split(":")[0]}
           aria-label="Command palette"
           style={{
             width: "100%", padding: "10px 12px", borderRadius: 8,
             border: "1px solid var(--border)", background: "var(--surface-2)", outline: "none",
           }}
         />
-        <div style={{ marginTop: 8 }}>
-          {hits.map(([label, id]) => (
+        <div style={{ marginTop: 8, maxHeight: 320, overflowY: "auto" }}>
+          {hits.map((a) => (
             <button
-              key={id}
+              key={a.key}
               className="btn secondary"
               style={{ display: "block", width: "100%", textAlign: "start", marginBottom: 4 }}
-              onClick={() => { setView(id); onClose(); }}
+              onClick={() => { a.run(); onClose(); }}
             >
-              {label}
+              {a.label}
             </button>
           ))}
+          {hits.length === 0 && <p className="muted" style={{ fontSize: 13 }}>—</p>}
         </div>
       </div>
     </div>
@@ -89,7 +121,7 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
 
 function ToastHost({ toasts }: { toasts: Toast[] }) {
   return (
-    <div aria-live="polite" style={{ position: "fixed", bottom: 18, insetInlineEnd: 18, zIndex: 60, display: "grid", gap: 8 }}>
+    <div aria-live="polite" style={{ position: "fixed", bottom: 58, insetInlineEnd: 18, zIndex: 60, display: "grid", gap: 8 }}>
       {toasts.map((t) => (
         <div
           key={t.id}
@@ -111,7 +143,7 @@ function ToastHost({ toasts }: { toasts: Toast[] }) {
 }
 
 export function ShellProvider({ children }: { children: React.ReactNode }) {
-  const [view, setView] = useState<ViewId>("overview");
+  const [view, setView] = useState<ViewId>("home");
   const [lang, setLang] = useState<Lang>(() =>
     (localStorage.getItem("lens.lang") as Lang) || "en");
   const [theme, setTheme] = useState<"light" | "dark">(() =>
@@ -120,10 +152,10 @@ export function ShellProvider({ children }: { children: React.ReactNode }) {
   const [activeSetId, setActiveSetId] = useState<string | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
-  // The welcome guide shows once per major version (v2 = this UX rebuild);
+  // The welcome guide shows once per major version (v3 = the v0.3 UX rebuild);
   // replayable from Settings at any time.
   const [welcomeOpen, setWelcomeOpen] = useState(
-    () => localStorage.getItem("lens.welcome.v2.done") !== "1"
+    () => localStorage.getItem("lens.welcome.v3.done") !== "1"
   );
 
   const toast = (message: string, kind: "ok" | "error" = "ok") => {
@@ -165,7 +197,7 @@ export function ShellProvider({ children }: { children: React.ReactNode }) {
       openWelcome: () => setWelcomeOpen(true),
       closeWelcome: () => {
         setWelcomeOpen(false);
-        localStorage.setItem("lens.welcome.v2.done", "1");
+        localStorage.setItem("lens.welcome.v3.done", "1");
       },
     }),
     [view, lang, theme, activeSetId, welcomeOpen, toasts.length]

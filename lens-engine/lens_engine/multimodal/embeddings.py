@@ -23,8 +23,8 @@ import asyncio
 import math
 
 from ..ai.providers import OllamaProvider
-from ..config import get_settings
 from ..logging import get_logger
+from ..models_defaults import effective_model
 
 log = get_logger(__name__)
 
@@ -49,8 +49,7 @@ def _cos(a: list[float], b: list[float]) -> float:
 
 
 async def embed_text(text: str, *, model: str | None = None) -> list[float]:
-    settings = get_settings()
-    model = model or settings.default_embedding_model
+    model = model or effective_model("embed")
     resp = await OllamaProvider().embed(text, model=model)
     return resp.vector
 
@@ -82,8 +81,8 @@ async def ensure_embeddings(set_images: list, *, force: bool = False) -> dict:
     """
     from ..main import get_store
 
-    settings = get_settings()
-    model = settings.default_embedding_model
+    
+    model = effective_model("embed")
     await _ensure_model(model)
 
     store = get_store()
@@ -110,8 +109,8 @@ async def ensure_embeddings(set_images: list, *, force: bool = False) -> dict:
 
 async def semantic_search(set_images: list, query: str, *, top_k: int = 20) -> dict:
     """Rank the set's images by cosine(query, ocr+caption embedding)."""
-    settings = get_settings()
-    model = settings.default_embedding_model
+    
+    model = effective_model("embed")
     qvec = await embed_text(query, model=model)
     hits = []
     missed = 0

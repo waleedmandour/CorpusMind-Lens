@@ -72,6 +72,7 @@ jobs:
             --collect-all sentence_transformers --collect-all tokenizers \
             --collect-all safetensors --collect-all scipy --collect-all sklearn \
             --add-data "../reference-data/frameworks${SEP}reference-data/frameworks" \
+            --add-data "../reference-data/reference-corpora${SEP}reference-data/reference-corpora" \
             --hidden-import uvicorn.loops.asyncio \
             --hidden-import uvicorn.protocols.http.h11_impl \
             --hidden-import uvicorn.protocols.http.httptools_impl \
@@ -118,6 +119,13 @@ jobs:
               "/api/v1/projects/{project_id}/social/import",
               "/api/v1/projects/{project_id}/social/fetch",
               "/api/v1/projects/{project_id}/social-export/posts",
+              "/api/v1/imagesets/{set_id}/text/concordance",
+              "/api/v1/imagesets/{set_id}/text/collocations",
+              "/api/v1/imagesets/{set_id}/text/keyness-reference",
+              "/api/v1/imagesets/{set_id}/text/references",
+              "/api/v1/projects/{project_id}/stoplists",
+              "/api/v1/troubleshoot/interpret",
+              "/api/v1/settings/models",
           ]
           missing = [p for p in required if p not in paths]
           print(f"frozen sidecar exposes {len(paths)} paths")

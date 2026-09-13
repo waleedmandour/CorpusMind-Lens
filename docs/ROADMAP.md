@@ -27,7 +27,7 @@ landscape:
    Lens already implements). Framework-guided *visual* corpus analysis
    remains an open niche — Lens's reason to exist.
 
-## Where Lens stands after v0.2
+## Where Lens stands after v0.3
 
 - ✅ One installer per platform, engine bundled (v0.1.1)
 - ✅ Ollama/LM Studio auto-detection, auto-start, one-click silent install (v0.2)
@@ -38,46 +38,57 @@ landscape:
   12 framework batteries → visual KWIC → keyness/dispersion/n-grams → exports
   (incl. Methods-section auto-draft) (v0.1.x)
 - ✅ Companion Mode to CorpusMind (Text), consent gate, local-first AI, no GPS (v0.1.0)
+- ✅ Workflow interface: full functional menu (Build corpus → Analyse → Share),
+  permanent task bar with Smart-Troubleshooting issue store, offline fix rules,
+  LOCAL-model error interpretation, in-app guide + About, default-model picker,
+  engine restart + log diagnostics (v0.3)
+- ✅ Text layer over the OCR corpus: Concordancer 2.0, collocation engine with
+  network view, n-grams/lexical bundles with dispersion, dispersion gallery,
+  word sketches (visual edition), reference-corpus keyness (bundled EN/AR
+  frequency tables), per-project stoplists (v0.3)
 
-## Planned — corpus-linguistics backbone (v0.3, "the AntConc audit")
+## Shipped — corpus-linguistics backbone (v0.3, "the AntConc audit")
 
 A gap analysis against the classic toolset (AntConc's ten tools, Sketch
 Engine's word sketches/thesaurus, LancsBox X's GraphColl, CQPweb) over
 Lens's extracted text corpus — the features a corpus linguist expects and
 Lens does not yet have. Everything below operates on the OCR corpus +
 captions Lens already produces, so the visual and textual layers finally
-share one analysis surface:
+share one analysis surface. v0.3 ships items 1, 3-7 and 9; the remainder
+stay planned:
 
-1. 📋 **Concordancer 2.0** — text KWIC with left/right sort positions,
+1. ✅ **Concordancer 2.0** — text KWIC with left/right sort positions,
    regex queries, per-hit metadata, export to CSV/XLSX (AntConc parity;
-   today's visual KWIC stays for word-box geometry).
+   today's visual KWIC stays for word-box geometry). (v0.3)
 2. 📋 **CQL-lite query language** — the common subset of Corpus Query
    Language (token, lemma, pos, distance operators) over a light
    tokenizer+tagger for OCR text; Sketch Engine users should feel at home.
-3. 📋 **Collocation engine + GraphColl-style networks** — MI, t-score,
+3. ✅ **Collocation engine + GraphColl-style networks** — MI, t-score,
    Log-log, LL and **Log Ratio** (Hardie's effect-size discipline, already
-   enforced in Lens's keyness), interactive collocation network view.
-4. 📋 **Reference-corpus keyness** — ship curated reference frequency
-   tables (the parent project's BE06/Leipzig/CAMEL lists are AGPL-compatible
-   to port) so keyness works *without* needing a second image set; include
-   **dispersion-incorporated keyness** (Gries 2021; Larsson 2025's
-   text-dispersion variants).
-5. 📋 **Lexical bundles & n-gram dispersion** — bundle extraction with
-   text-dispersion measures (Larsson 2025), useful for EAP-facing analyses
-   of OCR'd student/poster text.
-6. 📋 **Dispersion gallery** — Juilland's D, DP (already computed) as
-   per-image dispersion plots over reading order.
-7. 📋 **Word sketches (visual grammar edition)** — Sketch Engine's
+   enforced in Lens's keyness), interactive collocation network view. (v0.3)
+4. ✅ **Reference-corpus keyness** — curated reference frequency
+   tables (the parent project's BE06/Leipzig/CAMEL lists, open-licensed)
+   shipped inside the installers so keyness works *without* needing a
+   second image set; dispersion-incorporated variants listed under
+   n-grams/bundles. (v0.3)
+5. ✅ **Lexical bundles & n-gram dispersion** — bundle extraction with
+   text-dispersion measures (Larsson 2025-style Juilland's D / Gries' DP
+   over reading order), useful for EAP-facing analyses of OCR'd
+   student/poster text. (v0.3)
+6. ✅ **Dispersion gallery** — Juilland's D, DP (already computed) as
+   per-word dispersion rows across the set's images in reading order. (v0.3)
+7. ✅ **Word sketches (visual grammar edition)** — Sketch Engine's
    one-page grammatical summary, re-imagined for visual data: for a chosen
    token, its typical visual co-patterns (colour, composition band,
    typography register, detected objects) instead of grammatical
-   dependencies. This is Lens's differentiated answer to the word sketch.
+   dependencies. This is Lens's differentiated answer to the word sketch. (v0.3)
 8. 📋 **Semantic/USAS tagging of OCR text** — port the parent's USAS
    top-lexicon bridge; enables semantically-grouped keyword lists and
    metaphor/metonymy triage (Krennmayr-style MIP support pairs with the
    existing CMT framework lens).
-9. 📋 **Stoplist & wordlist manager** — editable EN/AR stoplists per
-   project (beyond today's built-in list), wordlist comparisons.
+9. ✅ **Stoplist & wordlist manager** — editable EN/AR stoplists per
+   project (beyond today's built-in list), resolved in every wordlist,
+   collocation and n-gram run. (v0.3)
 
 ## Planned — LLM-assisted analysis, verifiably (v0.4)
 

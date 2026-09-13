@@ -52,16 +52,23 @@ jobs:
           awk '/^## /{c++} c==1{print} c==2{exit}' CHANGELOG.md > RELEASE_NOTES.md
           if [ ! -s RELEASE_NOTES.md ]; then echo "See CHANGELOG.md for the full release notes." > RELEASE_NOTES.md; fi
           cat RELEASE_NOTES.md
-      - name: Create the release
+      - name: Create the release (draft - published only after verification)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # Idempotent: a re-run of a partially failed release must not die here.
+          # Draft-first: users must never see a half-stocked release while the
+          # platform jobs are still uploading, and a failed run leaves nothing
+          # visible. verify-release flips it to published + latest only after
+          # the five installers check out. (Observed in the first v0.3.1 runs:
+          # a release left behind by a cancelled run stayed a draft forever -
+          # invisible to users and invisible to 'gh release view' users use.)
           if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "release for $GITHUB_REF_NAME already exists"
+            echo "release for $GITHUB_REF_NAME already exists (kept as is; publish happens in verify-release)"
           else
             gh release create "$GITHUB_REF_NAME" \
               --repo "$GITHUB_REPOSITORY" \
+              --draft \
               --title "$GITHUB_REF_NAME" \
               --notes-file RELEASE_NOTES.md
           fi
@@ -386,3 +393,12 @@ jobs:
               print("UNEXPECTED extras at publish time:", extra)
           print("release asset check passed:", len(names), "assets")
           PY
+      - name: Publish the release (draft -> published + latest)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Only reached when all five installers are present. Idempotent.
+          gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
+            --draft=false --latest
+          gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
+            --json isDraft,isLatest --jq '"published: " + (.isDraft|tostring) + ", latest: " + (.isLatest|tostring)'

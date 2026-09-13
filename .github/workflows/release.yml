@@ -394,9 +394,17 @@ jobs:
           tag = os.environ["GITHUB_REF_NAME"]
           version = tag[1:] if tag.startswith("v") else tag
           req = urllib.request.Request(
-              f"https://api.github.com/repos/{os.environ['GITHUB_REPOSITORY']}/releases/tags/{tag}",
+              f"https://api.github.com/repos/{os.environ['GITHUB_REPOSITORY']}/releases?per_page=20",
               headers={"Authorization": f"token {os.environ['GH_TOKEN']}"})
-          release = json.load(urllib.request.urlopen(req))
+          # NOTE: /releases/tags/<tag> returns 404 for DRAFT releases, so the
+          # draft-first lifecycle requires listing releases and matching the
+          # tag here (first v0.3.1 verify run died exactly on that 404).
+          releases = json.load(urllib.request.urlopen(req))
+          match = [r for r in releases if r["tag_name"] == tag]
+          if not match:
+              print(f"no release (draft or published) for tag {tag}")
+              sys.exit(1)
+          release = match[0]
           names = [a["name"] for a in release["assets"]]
           print("assets:", *names, sep="\n  ")
           expected = [

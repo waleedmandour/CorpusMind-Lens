@@ -176,7 +176,16 @@ jobs:
           arch -x86_64 "$X64_PY" -m pip install --upgrade pip
           echo "x64 build interpreter: $X64_PY (Rosetta 2)"
           arch -x86_64 "$X64_PY" -c "import platform; assert platform.machine() == 'x86_64', platform.machine()"
-          arch -x86_64 "$X64_PY" -m pip install pyinstaller ".[models]" --extra-index-url https://download.pytorch.org/whl/cpu
+          # cryptography >=46.0.3 dropped x86_64 macOS wheels (49+ dropped
+          # everything but arm64). Without a pin, pip takes the NEWEST
+          # version and falls back to the sdist, whose Rust build targets
+          # the runner's native arm64 - PyInstaller then aborts with
+          # IncompatibleBinaryArchError. Pin the last series with real
+          # x86_64 wheels, and prefer binaries everywhere else (torch is
+          # wheel-only anyway, so it already resolves to 2.2.2 x86_64).
+          arch -x86_64 "$X64_PY" -m pip install --prefer-binary pyinstaller \
+            "cryptography>=42.0,<46.0.3" ".[models]" \
+            --extra-index-url https://download.pytorch.org/whl/cpu
           arch -x86_64 "$X64_PY" -m PyInstaller --onefile --name lens-engine \
             --collect-all openpyxl --collect-all et_xmlfile \
             --collect-all torch --collect-all transformers \

@@ -46,7 +46,6 @@ from ..main import get_store
 from ..nlp_ar.normalize import is_arabic, normalize_arabic
 from ..stats import measures as M
 from .ocrtools import AR_STOPWORDS, EN_STOPWORDS
-from .ocrtools import _set_text as _ocr_set_text
 from .ocrtools import _TOKEN_RE
 
 router = APIRouter(tags=["text-corpus"])

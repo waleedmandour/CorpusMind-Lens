@@ -188,6 +188,10 @@ jobs:
           name: ${{ matrix.artifact }}
           path: lens-engine/dist/lens-engine*
           if-no-files-found: error
+          retention-days: 1   # build intermediates: consumed by the desktop job
+                              # within this run, superseded by the release assets;
+                              # short retention keeps the Actions storage quota for
+                              # the NEXT release (the v0.3.1 run died on quota)
 
   desktop:
     name: desktop bundles (${{ matrix.name }})
@@ -276,6 +280,7 @@ jobs:
         with:
           name: lens-desktop-${{ matrix.name }}
           if-no-files-found: error
+          retention-days: 1   # intermediates: consumed by the github-release job
           path: |
             lens-desktop/src-tauri/target/release/bundle/**/*
             lens-desktop/src-tauri/target/*/release/bundle/**/*

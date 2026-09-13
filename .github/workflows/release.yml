@@ -7,6 +7,10 @@ on:
 permissions:
   contents: write
 
+defaults:
+  run:
+    shell: bash   # Windows runner would otherwise feed these scripts to pwsh
+
 # Lens's own release pipeline (§12/§15 Phase 4): engine sidecar (PyInstaller)
 # + desktop bundles + tagged release, built from this repo only — never as a
 # secondary target of another product's workflow (the parent's regression).
@@ -131,9 +135,16 @@ jobs:
         if: runner.os == 'macOS'
         working-directory: lens-engine
         run: |
-          python -c "import platform; assert platform.machine() == 'x86_64', platform.machine()"
-          pip install pyinstaller ".[models]" --extra-index-url https://download.pytorch.org/whl/cpu
-          python -m PyInstaller --onefile --name lens-engine \
+          # Calling setup-python twice does not reliably move PATH, so drive
+          # the x64 interpreter by its explicit tool-cache path. The frozen
+          # binary inherits the interpreter's architecture (x86_64).
+          X64_PY=$(find "${RUNNER_TOOL_CACHE:-$HOME/hostedtoolcache}/Python" \
+                       -path '*x64/bin/python3' 2>/dev/null | head -1)
+          if [ -z "$X64_PY" ]; then echo "x64 CPython not found in tool cache"; exit 1; fi
+          echo "x64 interpreter: $X64_PY"
+          "$X64_PY" -c "import platform; assert platform.machine() == 'x86_64', platform.machine()"
+          "$X64_PY" -m pip install pyinstaller ".[models]" --extra-index-url https://download.pytorch.org/whl/cpu
+          "$X64_PY" -m PyInstaller --onefile --name lens-engine \
             --collect-all openpyxl --collect-all et_xmlfile \
             --collect-all torch --collect-all transformers \
             --collect-all sentence_transformers --collect-all tokenizers \

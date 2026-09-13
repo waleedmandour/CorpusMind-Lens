@@ -162,9 +162,22 @@ jobs:
             exit 1
           fi
           echo "x64 interpreter: $X64_PY"
-          "$X64_PY" -c "import platform; assert platform.machine() == 'x86_64', platform.machine()"
-          "$X64_PY" -m pip install pyinstaller ".[models]" --extra-index-url https://download.pytorch.org/whl/cpu
-          "$X64_PY" -m PyInstaller --onefile --name lens-engine \
+          # The darwin framework build is a UNIVERSAL binary: executed
+          # natively on this arm64 runner it reports arm64 (the first
+          # v0.3.1 fix resolved the interpreter but the arch assert then
+          # caught the arm64 slice). Run the x86_64 slice explicitly under
+          # Rosetta 2, and do it in a dedicated venv so the x64 wheel
+          # installs never collide with the arm64 ones in the shared
+          # framework site-packages.
+          arch -x86_64 "$X64_PY" -c "import platform; assert platform.machine() == 'x86_64', platform.machine()"
+          VENV="$RUNNER_TEMP/x64-sidecar-venv"
+          arch -x86_64 "$X64_PY" -m venv "$VENV"
+          X64_PY="$VENV/bin/python"
+          arch -x86_64 "$X64_PY" -m pip install --upgrade pip
+          echo "x64 build interpreter: $X64_PY (Rosetta 2)"
+          arch -x86_64 "$X64_PY" -c "import platform; assert platform.machine() == 'x86_64', platform.machine()"
+          arch -x86_64 "$X64_PY" -m pip install pyinstaller ".[models]" --extra-index-url https://download.pytorch.org/whl/cpu
+          arch -x86_64 "$X64_PY" -m PyInstaller --onefile --name lens-engine \
             --collect-all openpyxl --collect-all et_xmlfile \
             --collect-all torch --collect-all transformers \
             --collect-all sentence_transformers --collect-all tokenizers \

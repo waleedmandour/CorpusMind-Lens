@@ -6,6 +6,6 @@ legitimately need (the stable statistics formulas) is forked here with its own
 tests rather than imported across the boundary.
 """
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 PRODUCT_NAME = "CorpusMind Lens"
 API_VERSION = "1"  # X-CorpusMind-API-Version advertised by Companion Mode (§5)

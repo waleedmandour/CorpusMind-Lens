@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "lens-engine"
-version = "0.2.0"
+version = "0.2.1"
 description = "CorpusMind Lens engine — local-first visual & multimodal corpus analysis (FastAPI)"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -32,7 +32,10 @@ dependencies = [
 ocr = ["pytesseract>=0.3.10"]
 models = [
     "torch>=2.2",
-    "transformers>=4.40",
+    # Frozen-build stability: the engine's detector/CLIP code paths are
+    # written and tested against the 4.x API surface; transformers 5.x
+    # changed pipeline behaviour. Cap until the engine is verified on 5.x.
+    "transformers>=4.40,<5",
     "sentence-transformers>=2.7",
 ]
 dev = [

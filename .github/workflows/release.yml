@@ -13,6 +13,16 @@ on:
 #      Windows x64, macOS arm64 (Apple Silicon) AND macOS x64 (x64 CPython
 #      under Rosetta 2 on the arm64 runner — GitHub no longer ships Intel
 #      runners), each bundling the 12 discourse frameworks via --add-data.
+#      v0.2.1: the sidecar ALSO bundles the heavyweight [models] stack
+#      (CPU-only torch + transformers + sentence-transformers), so object
+#      detection and CLIP scene/alignment analysis work out of the box in
+#      every installer instead of silently degrading to heuristics with no
+#      way back (the exact packaging gap the v0.2.0 release notes blamed
+#      for the rebuild). CPU wheels come from the pytorch cpu index so the
+#      Linux/Windows artifacts stay CUDA-free; installers are larger
+#      (hundreds of MB) and first launch self-extracts more slowly.
+#      /api/v1/health capabilities and the Settings screen report the
+#      stacks honestly either way.
 #      These are CI artifacts only: the desktop job downloads them to bundle
 #      them INSIDE the installers (bundle.resources), and they are NOT
 #      attached to the GitHub release — end users download exactly one
@@ -52,9 +62,15 @@ jobs:
         run: |
           SEP=":"
           if [ "$RUNNER_OS" = "Windows" ]; then SEP=";"; fi
-          pip install pyinstaller .
+          # [models] extra = torch + transformers + sentence-transformers.
+          # CPU-only wheels via the pytorch cpu index (no CUDA payloads on
+          # Linux/Windows); macOS cpu wheels come from the same index.
+          pip install pyinstaller ".[models]" --extra-index-url https://download.pytorch.org/whl/cpu
           pyinstaller --onefile --name lens-engine \
             --collect-all openpyxl --collect-all et_xmlfile \
+            --collect-all torch --collect-all transformers \
+            --collect-all sentence_transformers --collect-all tokenizers \
+            --collect-all safetensors --collect-all scipy --collect-all sklearn \
             --add-data "../reference-data/frameworks${SEP}reference-data/frameworks" \
             --hidden-import uvicorn.loops.asyncio \
             --hidden-import uvicorn.protocols.http.h11_impl \
@@ -116,6 +132,49 @@ jobs:
           fi
           rm -rf .smoke-data .smoke.log .smoke-openapi.json
           echo "frozen sidecar smoke test passed"
+      # The v0.2.0 audit's meta-finding: nothing in CI ever RAN the built
+      # app, so a compile-clean packaging regression shipped silently. Boot
+      # the freshly built sidecar on each platform and demand a healthy
+      # /health with the capabilities report before the artifact uploads.
+      - name: Smoke test the built sidecar
+        working-directory: lens-engine
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json, os, subprocess, sys, time, urllib.request
+          port = "8799"
+          exe = os.path.abspath("dist/lens-engine" + (".exe" if os.name == "nt" else ""))
+          env = {**os.environ, "LENS_HOST": "127.0.0.1", "LENS_PORT": port,
+                 "LENS_DATA_DIR": os.path.abspath("smoke-data")}
+          proc = subprocess.Popen([exe], env=env,
+                                  stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+          try:
+              deadline = time.time() + 300   # onefile self-extract of the torch stack is slow
+              body = None
+              while time.time() < deadline:
+                  try:
+                      with urllib.request.urlopen(
+                          f"http://127.0.0.1:{port}/api/v1/health", timeout=3) as r:
+                          body = json.loads(r.read().decode())
+                          break
+                  except Exception:
+                      if proc.poll() is not None:
+                          print("sidecar exited early with code", proc.returncode)
+                          sys.exit(1)
+                      time.sleep(3)
+              if body is None:
+                  print("sidecar never became healthy within 300s")
+                  sys.exit(1)
+              caps = body.get("capabilities") or {}
+              missing = [k for k in ("vision_models", "alignment_embeddings") if k not in caps]
+              if missing:
+                  print("capabilities missing keys:", missing)
+                  sys.exit(1)
+              print("smoke OK:", body["product"], body["version"],
+                    "| vision_models bundled:", caps["vision_models"]["available"])
+          finally:
+              proc.terminate()
+          PY
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}

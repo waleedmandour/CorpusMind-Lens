@@ -40,8 +40,16 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
   return r.json() as Promise<T>;
 }
 
+export type StackStatus = { available: boolean; packages: Record<string, boolean>; enables: string; enable_hint: string };
+export type HealthInfo = {
+  status: string;
+  version: string;
+  product: string;
+  capabilities?: Record<string, StackStatus>;
+};
+
 export const api = {
-  health: () => req<{ status: string; version: string; product: string }>("/health"),
+  health: () => req<HealthInfo>("/health"),
   providersStatus: () =>
     req<{ ollama: { reachable: boolean; models: string[] }; lmstudio: { reachable: boolean } }>(
       "/providers/status"

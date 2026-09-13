@@ -10,6 +10,7 @@ from typing import Any
 
 import httpx
 
+from .. import __version__
 from ..logging import get_logger
 
 log = get_logger(__name__)
@@ -31,9 +32,12 @@ class CompanionClient:
         self.timeout = timeout
 
     def _headers(self) -> dict[str, str]:
+        # Version is read from the package singleton, never hardcoded: the
+        # v0.2.0 build still announced "lens-engine/0.1.0" here — the exact
+        # version-drift class the /health fix had just eliminated.
         return {
             "X-CorpusMind-API-Version": API_VERSION,
-            "X-CorpusMind-Lens-Client": "lens-engine/0.1.0",
+            "X-CorpusMind-Lens-Client": f"lens-engine/{__version__}",
         }
 
     async def _get(self, path: str) -> Any:

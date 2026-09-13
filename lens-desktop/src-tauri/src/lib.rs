@@ -48,18 +48,28 @@ impl EngineManager {
 
 // ─── Port-conflict / companion detection (§5, §15 Phase 3) ─────────────
 
-/// Returns Ok(()) if `port` is FREE, Err(()) if something is listening.
+/// True when `port` cannot be bound because something is already listening.
 fn port_in_use(port: u16) -> bool {
     std::net::TcpListener::bind((ENGINE_HOST, port)).is_err()
 }
 
-/// True when an engine that answers our health contract is on this port
-/// (either a CorpusMind Text engine we can treat as Companion, or a
-/// previous Lens engine instance that survived).
+/// True when something is already listening on this port (either a
+/// CorpusMind Text engine we can treat as Companion, or a previous Lens
+/// engine instance that survived).
+///
+/// v0.2.0 regression (release blocker): this used to return
+/// `!port_in_use(port)` — the INVERSE. `pick_port()` then walked FORWARD
+/// while ports were FREE and stopped at the first OCCUPIED one, so on a
+/// clean machine (the common case) it returned 8770: outside the CSP
+/// `connect-src` window (8765-8769). The app booted, the frontend
+/// discovered 8770, and every webview `fetch()` was then blocked by CSP —
+/// "opens fine, every API call fails". Unit-tested below so the predicate
+/// can never silently flip again.
 fn engine_alive_on(port: u16) -> bool {
-    // A plain TCP connect is enough to know the port is taken; the frontend
-    // then decides Companion vs. connect-to-existing via /api/v1/health.
-    !port_in_use(port)
+    // A plain TCP bind probe is enough to know the port is taken; the
+    // frontend then decides Companion vs. connect-to-existing via
+    // /api/v1/health.
+    port_in_use(port)
 }
 
 /// Candidate window. Tauri's CSP lists exactly these ports, so the sidecar
@@ -67,8 +77,15 @@ fn engine_alive_on(port: u16) -> bool {
 const PORT_WINDOW: u16 = 5;
 
 fn pick_port() -> u16 {
-    let mut port = PARENT_ENGINE_PORT;
-    while engine_alive_on(port) && port < PARENT_ENGINE_PORT + PORT_WINDOW {
+    pick_port_from(PARENT_ENGINE_PORT)
+}
+
+/// First port in `[start, start + PORT_WINDOW]` that is FREE. If the whole
+/// window is occupied, returns `start + PORT_WINDOW` (the CSP allow-list
+/// covers one port beyond the window as a belt-and-braces margin).
+fn pick_port_from(start: u16) -> u16 {
+    let mut port = start;
+    while engine_alive_on(port) && port < start + PORT_WINDOW {
         info!(
             "port {} busy (possible CorpusMind Text engine or stale engine) — trying next",
             port
@@ -76,6 +93,61 @@ fn pick_port() -> u16 {
         port += 1;
     }
     port
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Serialize tests that bind/probe real ports: the harness runs tests
+    /// in parallel, and a parallel test re-binding a just-freed ephemeral
+    /// port would make the assertions racy.
+    static PORT_LOCK: Mutex<()> = Mutex::new(());
+
+    /// The v0.2.0 release blocker: `engine_alive_on` was inverted, so
+    /// `pick_port()` skipped FREE ports and landed on BUSY ones — on a
+    /// clean machine it returned a port outside the CSP window. These
+    /// tests pin the predicate and the picker to the documented semantics.
+    #[test]
+    fn engine_alive_on_tracks_listener_presence() {
+        let _guard = PORT_LOCK.lock().unwrap();
+        let listener = std::net::TcpListener::bind(("127.0.0.1", 0)).expect("bind ephemeral");
+        let port = listener.local_addr().unwrap().port();
+        // Something is listening → alive.
+        assert!(engine_alive_on(port), "bound port must read as alive");
+        assert!(port_in_use(port));
+        drop(listener);
+        // Nothing is listening → not alive.
+        assert!(!engine_alive_on(port), "freed port must read as not alive");
+        assert!(!port_in_use(port));
+    }
+
+    #[test]
+    fn pick_port_from_returns_free_start_port_untouched() {
+        let _guard = PORT_LOCK.lock().unwrap();
+        // Find an ephemeral free port, release it, then the picker must
+        // start exactly there instead of walking away from it (the v0.2.0
+        // bug walked away from free ports and never started where asked).
+        let listener = std::net::TcpListener::bind(("127.0.0.1", 0)).expect("bind ephemeral");
+        let port = listener.local_addr().unwrap().port();
+        drop(listener);
+        assert_eq!(pick_port_from(port), port);
+    }
+
+    #[test]
+    fn pick_port_from_skips_occupied_ports() {
+        let _guard = PORT_LOCK.lock().unwrap();
+        // Occupy the start of the window: the walk must continue to the
+        // first genuinely free port and never return the occupied one.
+        let listener = std::net::TcpListener::bind(("127.0.0.1", 0)).expect("bind ephemeral");
+        let port = listener.local_addr().unwrap().port();
+        let picked = pick_port_from(port);
+        assert!(
+            picked > port,
+            "picker returned {picked} while {port} is occupied"
+        );
+        assert!(!port_in_use(picked), "picked port {picked} must be free");
+    }
 }
 
 // ─── Sidecar discovery ─────────────────────────────────────────────────

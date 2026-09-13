@@ -105,6 +105,15 @@ const en = {
     cloudNote: "Off by default. When active, an indicator is always visible.",
     theme: "Theme",
     replayWelcome: "Replay the welcome guide",
+    capabilities: "Analysis capabilities",
+    capabilitiesNote:
+      "What this installation can run right now. The desktop installers bundle the heavyweight model stacks; anything missing states exactly how to enable it.",
+    capVisionModels: "Object & scene detection",
+    capAlignment: "CLIP image-text alignment",
+    capOcr: "Tesseract OCR",
+    capAvailable: "installed",
+    capMissing: "not in this build",
+    capEnablePrefix: "Enable: ",
   },
   welcome: {
     skip: "Skip",
@@ -318,6 +327,15 @@ const ar: typeof en = {
     cloudNote: "معطَّل افتراضيًا. عند تفعيله يظهر مؤشّر دائم.",
     theme: "السمة",
     replayWelcome: "إعادة عرض دليل الترحيب",
+    capabilities: "قدرات التحليل",
+    capabilitiesNote:
+      "ما يمكن لهذه النسخة تشغيله الآن. مثبّتات سطح المكتب تتضمّن حِزم النماذج الثقيلة، وكل قدرة ناقصة تذكر طريقة تفعيلها بالتحديد.",
+    capVisionModels: "كشف الأشياء والمشاهد",
+    capAlignment: "مواءمة الصورة والنص CLIP",
+    capOcr: "التعرّف الضوئي Tesseract",
+    capAvailable: "مثبّتة",
+    capMissing: "غير موجودة في هذه النسخة",
+    capEnablePrefix: "التفعيل: ",
   },
   welcome: {
     skip: "تخطٍّ",

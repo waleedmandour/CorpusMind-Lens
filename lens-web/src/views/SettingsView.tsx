@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useShell } from "../shell";
-import { api, isDesktopShell, shell } from "../lib/api";
+import { api, isDesktopShell, shell, type StackStatus } from "../lib/api";
 
 type Fit = "gpu" | "cpu" | "tight" | "too-big" | "unknown";
 
@@ -10,6 +10,49 @@ function fitLabel(t: any, fit: Fit): string {
   if (fit === "tight") return t.settings.fitTight;
   if (fit === "too-big") return t.settings.fitTooBig;
   return t.settings.fitUnknown;
+}
+
+function CapabilitiesCard({ t }: { t: any }) {
+  const [caps, setCaps] = useState<Record<string, StackStatus> | null>(null);
+
+  useEffect(() => {
+    api.health()
+      .then((h) => setCaps(h.capabilities ?? {}))
+      .catch(() => setCaps({}));
+  }, []);
+
+  const order = ["vision_models", "alignment_embeddings", "tesseract_ocr"];
+  const named: Record<string, string> = {
+    vision_models: t.settings.capVisionModels,
+    alignment_embeddings: t.settings.capAlignment,
+    tesseract_ocr: t.settings.capOcr,
+  };
+
+  return (
+    <div className="card">
+      <h3>{t.settings.capabilities}</h3>
+      <p className="muted" style={{ fontSize: 12 }}>{t.settings.capabilitiesNote}</p>
+      {!caps ? null : (
+        <dl className="kv">
+          {order.filter((k) => caps[k]).map((k) => {
+            const stack = caps[k];
+            return (
+              <dt key={k} style={{ display: "block", marginBottom: 10 }}>
+                <strong>{named[k] ?? k}</strong>{" "}
+                <span className={`chip ${stack.available ? "grounded" : "ungrounded"}`}>
+                  {stack.available ? t.settings.capAvailable : t.settings.capMissing}
+                </span>
+                <div className="muted" style={{ fontSize: 12 }}>{stack.enables}</div>
+                {!stack.available && (
+                  <div className="evidence" style={{ fontSize: 12 }}>{t.settings.capEnablePrefix}{stack.enable_hint}</div>
+                )}
+              </dt>
+            );
+          })}
+        </dl>
+      )}
+    </div>
+  );
 }
 
 function ModelRow({ model, t, onPull, pullState, onRemove, installed }: {
@@ -250,6 +293,8 @@ export function SettingsView() {
       <h2>{t.nav.settings}</h2>
 
       <AiBackendCard t={t} />
+
+      <CapabilitiesCard t={t} />
 
       <div className="card">
         <h3>{t.settings.aiProviders}</h3>

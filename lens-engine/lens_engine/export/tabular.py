@@ -11,8 +11,39 @@ from __future__ import annotations
 import csv
 import io
 import json
+import re
 from typing import Any
-from xml.sax.saxutils import escape
+from xml.sax.saxutils import escape, quoteattr
+
+# CSV/Formula injection (CWE-1236): cells beginning with = + - @ (or a tab /
+# CR) are executed as formulas by Excel, LibreOffice Calc and Google Sheets
+# when the file is opened. Lens exports are full of third-party text (social
+# posts, OCR output) the researcher does NOT control, so every cell is
+# neutralised on the way out. Leading `-`/`+` on a purely numeric value is
+# exempt: corpus statistics are full of ordinary negative numbers (log
+# ratios, effect sizes) and those are constants, not executable formulas.
+_FORMULA_RISK_PREFIXES = ("=", "@", "\t", "\r")
+_SIGNED_NUMBER = re.compile(r"^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$")
+
+
+def sanitize_csv_cell(value: str) -> str:
+    """Return ``value`` made safe to open in a spreadsheet application.
+
+    Cells that could be interpreted as formulas are prefixed with a single
+    quote (the standard mitigation recommended by OWASP for CSV export);
+    spreadsheets then treat the whole cell as literal text and display the
+    original content. Purely numeric values (including signed ones) pass
+    through untouched so researchers can keep computing on exported
+    statistics.
+    """
+    if not value:
+        return value
+    first = value[0]
+    if first in _FORMULA_RISK_PREFIXES:
+        return "'" + value
+    if first in "+-" and not _SIGNED_NUMBER.match(value):
+        return "'" + value
+    return value
 
 
 def tabulate(result: Any) -> tuple[dict[str, Any], list[dict[str, Any]]]:
@@ -81,14 +112,23 @@ def render_rows(
         writer = csv.DictWriter(buf, fieldnames=columns, delimiter=delim, extrasaction="ignore")
         writer.writeheader()
         for r in rows:
-            writer.writerow({k: r.get(k, "") for k in columns})
+            # _scalar normalises dicts/lists to JSON text; sanitize_csv_cell
+            # then defuses formula injection (corpus text is adversarial).
+            writer.writerow(
+                {k: sanitize_csv_cell(_scalar(r.get(k, ""))) for k in columns}
+            )
         return buf.getvalue(), f"text/{fmt}", f"{name}.{fmt}"
 
     if fmt == "xml":
-        parts = [f'<?xml version="1.0" encoding="UTF-8"?>', f"<result name=\"{escape(name)}\">"]
+        # Attribute values go through quoteattr (NOT escape): escape() leaves
+        # double quotes intact, so any user-controlled name/key containing a
+        # `"` broke out of the attribute and produced invalid XML (v0.2.0
+        # finding). quoteattr picks the safe quoting and escapes everything
+        # needed, including the quote character itself.
+        parts = [f'<?xml version="1.0" encoding="UTF-8"?>', f"<result name={quoteattr(name)}>"]
         parts.append("  <meta>")
         for k, v in meta.items():
-            parts.append(f"    <field key=\"{escape(str(k))}\">{escape(_scalar(v))}</field>")
+            parts.append(f"    <field key={quoteattr(str(k))}>{escape(_scalar(v))}</field>")
         parts.append("  </meta>")
         parts.append(f'  <rows count="{len(rows)}">')
         for i, r in enumerate(rows, 1):

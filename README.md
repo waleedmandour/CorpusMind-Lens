@@ -56,15 +56,15 @@ CorpusMind-Lens/
 
 ## Download & install (end users)
 
-**One installer per platform — everything is inside.** The statistical/vision engine ships *within* every installer as a bundled sidecar; there is no second download and no Python to install.
+**One installer per platform — everything is inside.** The statistical/vision engine ships *within* every installer as a bundled sidecar; there is no second download and no Python to install. Since v0.2.1 the sidecar bundles the CPU-only torch/transformers stack, so object detection and CLIP scene/alignment analysis work out of the box; installers are correspondingly larger (hundreds of MB) and the first launch self-extracts more slowly. The Settings screen reports exactly which model stacks this installation carries.
 
 | Platform | File | Covers |
 |---|---|---|
-| Windows 10/11 (64-bit) | `CorpusMind.Lens_0.2.0_x64-setup.exe` | Recommended Windows installer (per-user) |
-| Windows 10/11 (64-bit) | `CorpusMind.Lens_0.2.0_x64_en-US.msi` | Enterprise/GPO deployment |
-| macOS 13+ (Intel **and** Apple Silicon) | `CorpusMind.Lens_0.2.0_universal.dmg` | One universal build for both architectures |
-| Linux (Debian/Ubuntu) | `corpusmind-lens_0.2.0_amd64.deb` | deb-based distributions |
-| Linux (most distributions) | `corpusmind-lens_0.2.0_amd64.AppImage` | Portable, no installation |
+| Windows 10/11 (64-bit) | `CorpusMind.Lens_0.2.1_x64-setup.exe` | Recommended Windows installer (per-user) |
+| Windows 10/11 (64-bit) | `CorpusMind.Lens_0.2.1_x64_en-US.msi` | Enterprise/GPO deployment |
+| macOS 13+ (Intel **and** Apple Silicon) | `CorpusMind.Lens_0.2.1_universal.dmg` | One universal build for both architectures |
+| Linux (Debian/Ubuntu) | `corpusmind-lens_0.2.1_amd64.deb` | deb-based distributions |
+| Linux (most distributions) | `corpusmind-lens_0.2.1_amd64.AppImage` | Portable, no installation |
 
 Download from the [Releases page](https://github.com/waleedmandour/CorpusMind-Lens/releases/latest). Local AI (the Assistant, LLM-annotated framework modes, vision descriptions) uses a locally installed **Ollama** or **LM Studio** — the app detects them automatically; if neither is present, the Setup screen offers a one-click silent install of Ollama. Without any AI backend every deterministic feature (statistics, batteries, exports) still works.
 
@@ -77,6 +77,8 @@ Headless/CLI users: `docker compose -f infra/docker-compose.yml up` provides the
 ```bash
 cd lens-engine
 pip install -e ".[ocr]"
+# Optional heavyweight AI stacks (object/scene detection, CLIP alignment):
+# pip install -e ".[models]"  (CPU wheels: --extra-index-url https://download.pytorch.org/whl/cpu)
 uvicorn lens_engine.main:app --port 8765
 # Health check: http://127.0.0.1:8765/api/v1/health
 ```

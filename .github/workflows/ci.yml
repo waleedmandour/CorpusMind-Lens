@@ -21,7 +21,7 @@ jobs:
       - name: Install
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev,ocr,encryption]"
+          pip install -e ".[dev,ocr]"
       - name: Test
         run: pytest -q
       - name: Lint (ruff)
@@ -64,3 +64,6 @@ jobs:
       - name: cargo check
         working-directory: lens-desktop/src-tauri
         run: cargo check --all-targets
+      - name: cargo test (sidecar lifecycle unit tests)
+        working-directory: lens-desktop/src-tauri
+        run: cargo test

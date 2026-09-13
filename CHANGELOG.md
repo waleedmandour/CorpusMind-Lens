@@ -2,6 +2,30 @@
 
 All notable changes to **CorpusMind Lens** are documented here, in the parent project's prose style: each entry explains *why*, not just *what*.
 
+## [0.2.1] - 2026-09-13 - External audit: all nine findings closed
+
+**Why:** An independent code audit of the v0.2.0 tag confirmed nine findings across three severities. The worst reproduced the exact failure class v0.2.0 had just been rebuilt to fix: the app opened, its engine started and answered health checks, yet the webview could not legally talk to it. This release closes all nine findings, adds regression tests for each, and ships the heavyweight model stacks inside every installer so detection and CLIP alignment stop degrading silently.
+
+### Fixed (critical)
+
+- **Port picker inversion (release blocker).** `engine_alive_on()` returned the *inverse* of "something is listening", so on any clean machine `pick_port()` walked 8765-8769 while they were FREE and landed on 8770: outside the webview CSP allow-list. The sidecar booted healthy, the frontend discovered 8770, and every API fetch was then blocked by CSP; the app looked alive while nothing worked. The predicate is corrected and pinned by three new Rust unit tests (run in CI from now on), and the CSP window carries 8770 as a belt-and-braces margin for the all-ports-busy edge case.
+- **CSV/TSV formula injection (CWE-1236).** Exports wrote cell values verbatim, so a post whose text starts with `=HYPERLINK(...)` or `=cmd|'/c calc'!A1` would execute in Excel or Google Sheets the moment a researcher opened the export. Every CSV/TSV cell that could parse as a formula is now neutralised with the OWASP marker-quote, while signed numbers (log ratios, effect sizes) stay numeric so researchers can keep computing on exported statistics.
+- **Packaging: the [models] stack now ships inside the installers.** v0.2.0's own release notes blamed the missing torch stack, yet release builds still installed without it, so object detection and CLIP scene/alignment analysis degraded to heuristics in every downloadable installer. Sidecars now bundle CPU-only torch + transformers + sentence-transformers from the pytorch cpu index (no CUDA payloads), with transformers capped to the battle-tested 4.x API the engine is written against. Installers get larger and first launch self-extracts more slowly; `/api/v1/health` now reports every optional stack with an honest note on what it enables and how to get it, mirrored by a new Settings card (EN and AR).
+
+### Fixed (medium and low)
+
+- **XML attribute escaping.** Project or column names containing a double quote broke out of the attribute and produced invalid XML; attribute values now go through `quoteattr()` and round-trip exactly.
+- **Phone redaction no longer corrupts corpus data.** ISO dates (`2024-01-15`), slash dates, `dddd-dddd` ranges (8765-8769, 2010-2015) and 16-plus digit ids survive redaction untouched; genuine phone numbers (7-15 digits, E.164 bound) are still redacted, privacy-first.
+- **Tauri capabilities match reality.** Four plugins (shell, dialog, fs, http) were declared and permissioned but never registered, and the http scope ignored the fallback ports; the dead plugins are removed and capabilities now document exactly what the running app uses (core invoke and events; the CSP governs webview fetch).
+- **Companion Mode version drift.** The client header hardcoded `lens-engine/0.1.0` on a 0.2.0 install; it now reads the package version, enforced by test.
+- **Framework YAMLs deduplicated.** The twelve templates existed in two byte-identical copies, a drift risk the moment one copy gets edited; `reference-data/frameworks/` is now the single canonical location the engine, the Docker image and the PyInstaller build all read.
+- **Pseudonym salt is required.** `pseudonymize_handle()` no longer accepts a guessable default salt; callers must pass the per-import random salt.
+
+### Changed
+
+- CI runs the new Rust sidecar unit tests (`cargo test`) alongside `cargo check`, and the engine install no longer references a non-existent `encryption` extra.
+- Test suite grown 120 to 133 (formula injection, XML quoting, redaction precision, salt contract, version header, capability reporting).
+
 ## [0.2.0] — 2026-09-12 · One intuitive AI, social corpora, rebuilt shell
 
 **Why:** v0.1.0 answered "can Lens run locally?" but left the AI story to the user's imagination — the parent CorpusMind finds and starts Ollama for you; Lens did nothing at all, and its packaged builds shipped without torch, so detection/CLIP/embeddings degraded to "unavailable" with no visible way back. The researcher experience the parent shipped — *install, and the AI is just there* — is the experience Lens now ships too, with the model-selection problem solved honestly: a 7B pull onto an 8GB laptop is a support ticket in waiting, so fit badges computed from the machine's actual RAM/VRAM appear **before** any multi-gigabyte download.

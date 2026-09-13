@@ -23,7 +23,7 @@ authors:
   - family-names: Ibrahim
     given-names: Wesam
     affiliation: Princess Nourah Bint Abdulrahman University
-version: 0.3.0
+version: 0.3.1
 doi: 10.5281/zenodo.21673083
 license: AGPL-3.0-only
 repository-code: "https://github.com/waleedmandour/CorpusMind-Lens"

@@ -1,5 +1,7 @@
 # CorpusMind Lens
 
+<img src="lens-desktop/src-tauri/app-icon.png" align="right" width="110" alt="The CorpusMind Lens application icon: a neural brain forming a speech bubble over the caption CorpusMind Lens, Linguistics Tool" />
+
 **CorpusMind Lens** is a local-first, AI-native, visual and multimodal corpus-analysis environment. It lets a researcher turn a set of images — with or without accompanying text — into publication-ready, statistically grounded, framework-lensed discourse analysis, using the same evidentiary rigor corpus linguistics has always demanded of text, applied for the first time to images at scale.
 
 Lens is a sibling product of [CorpusMind](https://github.com/waleedmandour/CorpusMind) (text), not its "image tab": it has its own repository, its own engine, its own frontend, its own release cycle, its own brand identity, and its own Zenodo DOI. It interoperates with CorpusMind (Text) only through a documented, versioned HTTP API (optional, off by default — see *Companion Mode* in `docs/COMPANION_MODE.md`), never through shared source code or a shared UI shell.
@@ -60,13 +62,13 @@ CorpusMind-Lens/
 
 | Platform | File | Covers |
 |---|---|---|
-| Windows 10/11 (64-bit) | `CorpusMind.Lens_0.2.1_x64-setup.exe` | Recommended Windows installer (per-user) |
-| Windows 10/11 (64-bit) | `CorpusMind.Lens_0.2.1_x64_en-US.msi` | Enterprise/GPO deployment |
-| macOS 13+ (Intel **and** Apple Silicon) | `CorpusMind.Lens_0.2.1_universal.dmg` | One universal build for both architectures |
-| Linux (Debian/Ubuntu) | `corpusmind-lens_0.2.1_amd64.deb` | deb-based distributions |
-| Linux (most distributions) | `corpusmind-lens_0.2.1_amd64.AppImage` | Portable, no installation |
+| Windows 10/11 (64-bit) | [`CorpusMind.Lens_0.3.1_x64-setup.exe`](https://github.com/waleedmandour/CorpusMind-Lens/releases/download/v0.3.1/CorpusMind.Lens_0.3.1_x64-setup.exe) | Recommended Windows installer (per-user) |
+| Windows 10/11 (64-bit) | [`CorpusMind.Lens_0.3.1_x64_en-US.msi`](https://github.com/waleedmandour/CorpusMind-Lens/releases/download/v0.3.1/CorpusMind.Lens_0.3.1_x64_en-US.msi) | Enterprise/GPO deployment |
+| macOS 13+ (Intel **and** Apple Silicon) | [`CorpusMind.Lens_0.3.1_universal.dmg`](https://github.com/waleedmandour/CorpusMind-Lens/releases/download/v0.3.1/CorpusMind.Lens_0.3.1_universal.dmg) | One universal build for both architectures |
+| Linux (Debian/Ubuntu) | [`CorpusMind.Lens_0.3.1_amd64.deb`](https://github.com/waleedmandour/CorpusMind-Lens/releases/download/v0.3.1/CorpusMind.Lens_0.3.1_amd64.deb) | deb-based distributions |
+| Linux (most distributions) | [`CorpusMind.Lens_0.3.1_amd64.AppImage`](https://github.com/waleedmandour/CorpusMind-Lens/releases/download/v0.3.1/CorpusMind.Lens_0.3.1_amd64.AppImage) | Portable, no installation |
 
-Download from the [Releases page](https://github.com/waleedmandour/CorpusMind-Lens/releases/latest). Local AI (the Assistant, LLM-annotated framework modes, vision descriptions) uses a locally installed **Ollama** or **LM Studio** — the app detects them automatically; if neither is present, the Setup screen offers a one-click silent install of Ollama. Without any AI backend every deterministic feature (statistics, batteries, exports) still works.
+Always grab installers from the [Releases page](https://github.com/waleedmandour/CorpusMind-Lens/releases/latest) so the version in the link matches the newest published build; the table above is refreshed with every release. Local AI (the Assistant, LLM-annotated framework modes, vision descriptions) uses a locally installed **Ollama** or **LM Studio** — the app detects them automatically; if neither is present, the Setup screen offers a one-click silent install of Ollama. Without any AI backend every deterministic feature (statistics, batteries, exports) still works.
 
 Headless/CLI users: `docker compose -f infra/docker-compose.yml up` provides the engine without the desktop shell.
 

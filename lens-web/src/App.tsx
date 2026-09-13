@@ -127,7 +127,8 @@ function Ribbon() {
   return (
     <header className="lens-ribbon">
       <div className="lens-brand">
-        <img src="/icon-lens.svg" alt="" aria-hidden />
+        {/* The official CorpusMind Lens artwork (same source as the desktop icon). */}
+        <img src="/icon-64.png" alt="" aria-hidden />
         <span>{t.app}</span>
         <span className="lens-badge">Lens</span>
       </div>

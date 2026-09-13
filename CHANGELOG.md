@@ -2,6 +2,20 @@
 
 All notable changes to **CorpusMind Lens** are documented here, in the parent project's prose style: each entry explains *why*, not just *what*.
 
+## [0.3.1] - 2026-09-13 - Identity release: the right icon on every surface
+
+**Why:** Within a day of v0.3.0, two packaging leftovers from the parent-app scaffold surfaced and made a correct build look like an old one. First, the Windows .ico and macOS .icns inside the installers still carried the parent CorpusMind artwork: the icon set had been regenerated only partially when Lens got its own repository, so Windows taskbars and macOS Docks showed the parent product's icon next to a v0.3.0 About page. Second, the README download table still named v0.2.1 files (some in a filename pattern that has not existed since v0.1.x), so following the README's own links reinstalled the previous release. Nothing about the application code changed; this release exists so that what a researcher installs finally looks, and links, like the current Lens.
+
+### Fixed
+
+- **The complete icon set is now the official CorpusMind Lens artwork, everywhere.** The Windows .ico, the macOS .icns, every Linux PNG size, the in-app ribbon brand mark and the About page, the web favicon, the PWA manifest icons, and the README header are all generated from the single 1024 px official tile (kept in the repository as `lens-desktop/src-tauri/app-icon.png` so future regenerations stay one command away). The mixed set that carried parent artwork in `icon.ico`, `icon.icns`, and the 128 px files is gone.
+- **The README download table names and links the current files.** Every row now points at a permanent v0.3.1 asset permalink, and a note tells readers to prefer the Releases page for the newest build. The previous rows pointed at v0.2.1 names, two of them in a lowercase pattern removed after v0.1.x, which is how a fresh download could silently produce the old app.
+
+### Changed
+
+- The two-page user guide is refreshed for 0.3.1 and now carries the official application icon on page 1.
+- Versions bumped to 0.3.1 across the engine, desktop shell, web client, and citation metadata. No engine, API, or interface behaviour changes in this release.
+
 ## [0.3.0] - 2026-09-13 - The workflow release: full menu, task bar, and the text layer
 
 **Why:** v0.2 analysed *annotations* well but made researchers work to find the tools: "Image Sets" and "Vision Workbench" overlapped confusingly, a decorative Ctrl-K button did nothing visible, and errors surfaced as one-line toasts that vanished before they could be read. v0.3 rebuilds the interface around the research workflow the way the parent CorpusMind does it: a full functional menu the user picks tools from, a permanent task bar that shows what is running and what to do next, and a proper text-analysis layer over the OCR corpus so the classic corpus-linguistics toolset finally has a home.

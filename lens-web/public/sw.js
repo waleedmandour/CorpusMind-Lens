@@ -10,8 +10,8 @@
  *   - Engine API (/api/*, cross-origin 127.0.0.1:8765): never touched.
  *     Research data must never be served stale from a cache.
  */
-const CACHE = "lens-shell-v2";
-const SHELL = ["/", "/index.html", "/icon-lens.svg", "/manifest.webmanifest"];
+const CACHE = "lens-shell-v3";
+const SHELL = ["/", "/index.html", "/favicon-32.png", "/icon-192.png", "/manifest.webmanifest"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(

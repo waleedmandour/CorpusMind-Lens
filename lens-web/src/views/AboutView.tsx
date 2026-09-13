@@ -12,8 +12,19 @@ export function AboutView() {
 
   return (
     <div>
-      <h2>{t.about.title}</h2>
-      <p className="muted" style={{ maxWidth: 720, marginTop: 0 }}>{t.about.tagline}</p>
+      <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 4 }}>
+        <img
+          src="/icon-192.png"
+          alt="CorpusMind Lens application icon"
+          width={64}
+          height={64}
+          style={{ borderRadius: 14 }}
+        />
+        <div>
+          <h2 style={{ margin: 0 }}>{t.about.title}</h2>
+          <p className="muted" style={{ margin: 0 }}>{t.about.tagline}</p>
+        </div>
+      </div>
 
       <div className="card">
         <h3>{t.about.what}</h3>

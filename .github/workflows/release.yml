@@ -430,5 +430,14 @@ jobs:
           # Only reached when all five installers are present. Idempotent.
           gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
             --draft=false --latest
-          gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
-            --json isDraft,isLatest --jq '"published: " + (.isDraft|tostring) + ", latest: " + (.isLatest|tostring)'
+          # Confirm the tag really is the repo's latest release. (gh has no
+          # isLatest field in release JSON - the first v0.3.1 verify run died
+          # printing one - so ask /releases/latest instead.)
+          LATEST=$(curl -sf -H "Authorization: token $GH_TOKEN" \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/releases/latest" \
+            | python3 -c "import json, sys; print(json.load(sys.stdin)['tag_name'])")
+          if [ "$LATEST" != "$GITHUB_REF_NAME" ]; then
+            echo "expected latest release to be $GITHUB_REF_NAME, got $LATEST"
+            exit 1
+          fi
+          echo "published and marked latest: $LATEST"

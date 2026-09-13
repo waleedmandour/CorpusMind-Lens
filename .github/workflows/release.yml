@@ -4,61 +4,94 @@ on:
   push:
     tags: ["v*"]
 
+permissions:
+  contents: write
+
 # Lens's own release pipeline (§12/§15 Phase 4): engine sidecar (PyInstaller)
 # + desktop bundles + tagged release, built from this repo only — never as a
 # secondary target of another product's workflow (the parent's regression).
 #
-# Layout:
-#   1. engine-binaries — PyInstaller onefile sidecar per OS/CPU: Linux x64,
-#      Windows x64, macOS arm64 (Apple Silicon) AND macOS x64 (x64 CPython
-#      under Rosetta 2 on the arm64 runner — GitHub no longer ships Intel
-#      runners), each bundling the 12 discourse frameworks via --add-data.
-#      v0.2.1: the sidecar ALSO bundles the heavyweight [models] stack
-#      (CPU-only torch + transformers + sentence-transformers), so object
-#      detection and CLIP scene/alignment analysis work out of the box in
-#      every installer instead of silently degrading to heuristics with no
-#      way back (the exact packaging gap the v0.2.0 release notes blamed
-#      for the rebuild). CPU wheels come from the pytorch cpu index so the
-#      Linux/Windows artifacts stay CUDA-free; installers are larger
-#      (hundreds of MB) and first launch self-extracts more slowly.
-#      /api/v1/health capabilities and the Settings screen report the
-#      stacks honestly either way.
-#      These are CI artifacts only: the desktop job downloads them to bundle
-#      them INSIDE the installers (bundle.resources), and they are NOT
-#      attached to the GitHub release — end users download exactly one
-#      installer per platform (single-package UX, v0.1.1). Headless/Docker
-#      users get the engine via the published Docker image instead.
-#   2. desktop — Tauri bundles: deb+AppImage, NSIS .exe+WiX .msi, and a
-#      universal-apple-darwin .app/.dmg covering BOTH Intel and Apple Silicon
-#      (the shell picks the matching sidecar at runtime via its ARCH suffix).
-#   3. github-release — attaches the 5 installers to the tagged release.
+# Layout (v0.3.1 — no Actions artifact store at all):
+#   The first v0.3.1 release run died uploading build intermediates:
+#   "Artifact storage quota has been hit" (two days of release runs had
+#   accumulated 15.8 GB of engine/desktop artifacts, and usage is only
+#   recalculated every 6-12 hours). Intermediates were pure waste — every
+#   byte ships inside the release assets anyway. So the pipeline now builds
+#   the sidecar AND the installers in ONE job per OS and attaches the
+#   installers DIRECTLY to the tagged release (release assets are not part
+#   of the Actions storage quota). Nothing ever touches upload-artifact.
+#   1. create-release — extracts the first CHANGELOG section as the notes
+#      and creates the release, so the platform jobs only upload files
+#      (no create/edit races between parallel jobs).
+#   2. platform (matrix: linux / windows / macos-universal) — PyInstaller
+#      sidecar ([models] stack bundled: CPU-only torch + transformers +
+#      sentence-transformers, so detection and CLIP work out of the box),
+#      per-platform smoke of the FROZEN binary, fresh lens-web build,
+#      tauri bundle, `gh release upload` of that platform's installers.
+#      macOS builds BOTH sidecar architectures in the same job (arm64
+#      CPython + x64 CPython under Rosetta 2 — GitHub no longer ships
+#      Intel runners) for the universal app; the shell picks the matching
+#      sidecar at runtime via its ARCH suffix.
+#   3. verify-release — asserts the release carries exactly the five
+#      installers with the tag's version in their names.
 jobs:
-  engine-binaries:
-    name: lens-engine sidecar (${{ matrix.artifact }})
+  create-release:
+    name: Create the tagged release with notes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract release notes from CHANGELOG
+        run: |
+          # First version section: from the first '## ' heading up to (not
+          # including) the next one. The previous awk exited AT the heading
+          # and captured only the preamble above it.
+          awk '/^## /{c++} c==1{print} c==2{exit}' CHANGELOG.md > RELEASE_NOTES.md
+          if [ ! -s RELEASE_NOTES.md ]; then echo "See CHANGELOG.md for the full release notes." > RELEASE_NOTES.md; fi
+          cat RELEASE_NOTES.md
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Idempotent: a re-run of a partially failed release must not die here.
+          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "release for $GITHUB_REF_NAME already exists"
+          else
+            gh release create "$GITHUB_REF_NAME" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "$GITHUB_REF_NAME" \
+              --notes-file RELEASE_NOTES.md
+          fi
+      - name: Zenodo note
+        run: |
+          echo "On this first tagged release, mint/confirm the reserved DOI" \
+               "10.5281/zenodo.21673083 against this repository (§12, §19)."
+
+  platform:
+    name: sidecar + installers (${{ matrix.name }})
+    needs: create-release
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
-            artifact: lens-engine-linux
-          - os: windows-latest
-            artifact: lens-engine-windows
-          - os: macos-latest
-            artifact: lens-engine-macos-arm64
-            python-arch: arm64
-          - os: macos-latest
-            artifact: lens-engine-macos-x64
-            python-arch: x64   # x64 CPython under Rosetta 2 → x86_64 sidecar
+          - name: linux
+            os: ubuntu-latest
+          - name: windows
+            os: windows-latest
+          - name: macos-universal
+            os: macos-latest
     steps:
       - uses: actions/checkout@v4
+
+      # ── Engine sidecar (PyInstaller) ────────────────────────────────────
+      # macOS-universal runs this whole block TWICE (arm64 + x64 CPython)
+      # and keeps both binaries; Linux/Windows build once.
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-          architecture: ${{ matrix.python-arch || 'x64' }}
-      - name: Build sidecar
+          architecture: ${{ matrix.name == 'macos-universal' && 'arm64' || 'x64' }}
+      - name: Build sidecar (native arch)
         working-directory: lens-engine
-        shell: bash
         run: |
           SEP=":"
           if [ "$RUNNER_OS" = "Windows" ]; then SEP=";"; fi
@@ -66,7 +99,7 @@ jobs:
           # CPU-only wheels via the pytorch cpu index (no CUDA payloads on
           # Linux/Windows); macOS cpu wheels come from the same index.
           pip install pyinstaller ".[models]" --extra-index-url https://download.pytorch.org/whl/cpu
-          pyinstaller --onefile --name lens-engine \
+          python -m PyInstaller --onefile --name lens-engine \
             --collect-all openpyxl --collect-all et_xmlfile \
             --collect-all torch --collect-all transformers \
             --collect-all sentence_transformers --collect-all tokenizers \
@@ -80,19 +113,60 @@ jobs:
             --hidden-import uvicorn.protocols.websockets.wsproto_impl \
             --hidden-import uvicorn.logging \
             lens_engine/__main__.py
-      - name: Smoke test the frozen sidecar (Linux only)
+          mkdir -p ../lens-desktop/binaries/lens-engine
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            cp dist/lens-engine ../lens-desktop/binaries/lens-engine/lens-engine-aarch64
+          else
+            cp dist/lens-engine* ../lens-desktop/binaries/lens-engine/
+          fi
+          rm -rf build dist lens_engine.spec
+
+      # x64 sidecar for the universal macOS build (x64 CPython under Rosetta 2).
+      - uses: actions/setup-python@v5
+        if: runner.os == 'macOS'
+        with:
+          python-version: "3.12"
+          architecture: x64
+      - name: Build sidecar (x64 via Rosetta 2)
+        if: runner.os == 'macOS'
+        working-directory: lens-engine
+        run: |
+          python -c "import platform; assert platform.machine() == 'x86_64', platform.machine()"
+          pip install pyinstaller ".[models]" --extra-index-url https://download.pytorch.org/whl/cpu
+          python -m PyInstaller --onefile --name lens-engine \
+            --collect-all openpyxl --collect-all et_xmlfile \
+            --collect-all torch --collect-all transformers \
+            --collect-all sentence_transformers --collect-all tokenizers \
+            --collect-all safetensors --collect-all scipy --collect-all sklearn \
+            --add-data "../reference-data/frameworks:reference-data/frameworks" \
+            --add-data "../reference-data/reference-corpora:reference-data/reference-corpora" \
+            --hidden-import uvicorn.loops.asyncio \
+            --hidden-import uvicorn.protocols.http.h11_impl \
+            --hidden-import uvicorn.protocols.http.httptools_impl \
+            --hidden-import uvicorn.protocols.websockets.websockets_impl \
+            --hidden-import uvicorn.protocols.websockets.wsproto_impl \
+            --hidden-import uvicorn.logging \
+            lens_engine/__main__.py
+          cp dist/lens-engine ../lens-desktop/binaries/lens-engine/lens-engine-x86_64
+          rm -rf build dist lens_engine.spec
+      - name: Make sidecars executable (macOS)
+        if: runner.os == 'macOS'
+        run: chmod +x lens-desktop/binaries/lens-engine/lens-engine-*
+      - name: Make sidecar executable (Linux)
+        if: runner.os == 'Linux'
+        run: chmod +x lens-desktop/binaries/lens-engine/lens-engine
+
+      # ── Smoke tests on the FROZEN binary ────────────────────────────────
+      # The v0.2.0 release shipped a sidecar that was missing routes:
+      # PyInstaller cannot see dynamically imported modules, and the
+      # hand-maintained hidden-import list had drifted. main.py now imports
+      # every router statically; this guard keeps the guarantee honest.
+      - name: Smoke test the frozen sidecar (routes, Linux only)
         if: runner.os == 'Linux'
         working-directory: lens-engine
-        shell: bash
         run: |
-          # The v0.2.0 release shipped a sidecar that was missing routes:
-          # PyInstaller cannot see dynamically imported modules, and the
-          # hand-maintained hidden-import list had drifted. main.py now
-          # imports every router statically, but this guard keeps the
-          # guarantee honest: the FROZEN binary must expose the complete
-          # API surface and boot with zero router warnings.
           LENS_DATA_DIR="$PWD/.smoke-data" LENS_PORT=8798 \
-            LENS_HOST=127.0.0.1 ./dist/lens-engine > .smoke.log 2>&1 &
+            LENS_HOST=127.0.0.1 ../lens-desktop/binaries/lens-engine/lens-engine > .smoke.log 2>&1 &
           SIDECAR_PID=$!
           trap 'kill $SIDECAR_PID 2>/dev/null || true' EXIT
           for i in $(seq 1 60); do
@@ -143,17 +217,25 @@ jobs:
       # The v0.2.0 audit's meta-finding: nothing in CI ever RAN the built
       # app, so a compile-clean packaging regression shipped silently. Boot
       # the freshly built sidecar on each platform and demand a healthy
-      # /health with the capabilities report before the artifact uploads.
-      - name: Smoke test the built sidecar
-        working-directory: lens-engine
-        shell: bash
+      # /health with the capabilities report before any installer is made.
+      - name: Smoke test the built sidecar (capabilities)
+        working-directory: lens-desktop/binaries/lens-engine
+        env:
+          SMOKE_DATA_DIR: ${{ runner.temp }}/lens-smoke-data
         run: |
           python - <<'PY'
           import json, os, subprocess, sys, time, urllib.request
           port = "8799"
-          exe = os.path.abspath("dist/lens-engine" + (".exe" if os.name == "nt" else ""))
+          # macOS carries ARCH-suffixed sidecars for the universal build;
+          # smoke the native-arch one. Data dir lives in runner.temp so no
+          # smoke residue can leak into the bundled resources directory.
+          if sys.platform == "darwin":
+              exe = os.path.abspath("lens-engine-aarch64")
+          else:
+              exe = os.path.abspath("lens-engine" + (".exe" if os.name == "nt" else ""))
+          data_dir = os.environ.get("SMOKE_DATA_DIR") or os.path.abspath("smoke-data")
           env = {**os.environ, "LENS_HOST": "127.0.0.1", "LENS_PORT": port,
-                 "LENS_DATA_DIR": os.path.abspath("smoke-data")}
+                 "LENS_DATA_DIR": data_dir}
           proc = subprocess.Popen([exe], env=env,
                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
           try:
@@ -183,32 +265,8 @@ jobs:
           finally:
               proc.terminate()
           PY
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.artifact }}
-          path: lens-engine/dist/lens-engine*
-          if-no-files-found: error
-          retention-days: 1   # build intermediates: consumed by the desktop job
-                              # within this run, superseded by the release assets;
-                              # short retention keeps the Actions storage quota for
-                              # the NEXT release (the v0.3.1 run died on quota)
 
-  desktop:
-    name: desktop bundles (${{ matrix.name }})
-    needs: engine-binaries
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: linux
-            os: ubuntu-latest
-          - name: windows
-            os: windows-latest
-          - name: macos-universal
-            os: macos-latest
-    steps:
-      - uses: actions/checkout@v4
+      # ── Desktop bundles (Tauri) ─────────────────────────────────────────
       - uses: actions/setup-node@v4
         with: { node-version: "20" }
       - uses: dtolnay/rust-toolchain@stable
@@ -226,41 +284,6 @@ jobs:
       - name: Build web bundle
         working-directory: lens-web
         run: npm install && npm run build
-
-      - name: Place engine sidecar (Linux)
-        if: runner.os == 'Linux'
-        uses: actions/download-artifact@v4
-        with:
-          name: lens-engine-linux
-          path: lens-desktop/binaries/lens-engine
-      - name: Make sidecar executable (Linux)
-        if: runner.os == 'Linux'
-        run: chmod +x lens-desktop/binaries/lens-engine/lens-engine
-      - name: Place engine sidecar (Windows)
-        if: runner.os == 'Windows'
-        uses: actions/download-artifact@v4
-        with:
-          name: lens-engine-windows
-          path: lens-desktop/binaries/lens-engine
-      - uses: actions/download-artifact@v4
-        if: runner.os == 'macOS'
-        with:
-          name: lens-engine-macos-arm64
-          path: lens-desktop/binaries/dl/arm64
-      - uses: actions/download-artifact@v4
-        if: runner.os == 'macOS'
-        with:
-          name: lens-engine-macos-x64
-          path: lens-desktop/binaries/dl/x64
-      - name: Rename macOS sidecars (ARCH-suffixed)
-        if: runner.os == 'macOS'
-        run: |
-          mkdir -p lens-desktop/binaries/lens-engine
-          cp lens-desktop/binaries/dl/arm64/lens-engine lens-desktop/binaries/lens-engine/lens-engine-aarch64
-          cp lens-desktop/binaries/dl/x64/lens-engine lens-desktop/binaries/lens-engine/lens-engine-x86_64
-          chmod +x lens-desktop/binaries/lens-engine/lens-engine-*
-          ls -l lens-desktop/binaries/lens-engine/
-
       - name: Install Tauri CLI (prebuilt binary via npm)
         run: npm install -g @tauri-apps/cli@^2
       - name: Tauri build (universal macOS — Intel + Apple Silicon)
@@ -273,63 +296,69 @@ jobs:
         env:
           APPIMAGE_EXTRACT_AND_RUN: "1"   # AppImage tooling without FUSE
         run: tauri build
-      # Two patterns on purpose: plain `release` (Linux/Windows native builds)
-      # AND `<triple>/release` (macOS universal-apple-darwin). A single
-      # `*/release/...` glob silently matches nothing on native builds.
-      - uses: actions/upload-artifact@v4
-        with:
-          name: lens-desktop-${{ matrix.name }}
-          if-no-files-found: error
-          retention-days: 1   # intermediates: consumed by the github-release job
-          path: |
-            lens-desktop/src-tauri/target/release/bundle/**/*
-            lens-desktop/src-tauri/target/*/release/bundle/**/*
 
-  github-release:
-    name: Tagged GitHub release
-    needs: [engine-binaries, desktop]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with: { path: dist }
-      - name: Stage release assets (installers only — one file per platform)
-        run: |
-          mkdir -p release-assets
-          # Installers ONLY. The lens-engine sidecar ships INSIDE every
-          # installer (bundle.resources) — a separate engine download is
-          # never needed by end users (single-package UX, v0.1.1). Engine
-          # binaries remain available as CI artifacts for headless/CLI use;
-          # headless/Docker users use the published Docker image.
-          find dist -type f -name '*.deb'       -exec cp {} release-assets/ \;
-          find dist -type f -name '*.AppImage'  -exec cp {} release-assets/ \;
-          find dist -type f -name '*-setup.exe' -exec cp {} release-assets/ \;
-          find dist -type f -name '*.msi'       -exec cp {} release-assets/ \;
-          find dist -type f -name '*.dmg'       -exec cp {} release-assets/ \;
-          COUNT=$(ls release-assets | wc -l)
-          echo "staged $COUNT assets"; ls -la release-assets/
-          if [ "$COUNT" -ne 5 ]; then
-            echo "::error::expected exactly 5 installers (deb/AppImage/setup-exe/msi/dmg), got $COUNT"
-            exit 1
-          fi
-      - name: Extract release notes from CHANGELOG
-        run: |
-          # First version section: from the first '## ' heading up to (not
-          # including) the next one. The previous awk exited AT the heading
-          # and captured only the preamble above it.
-          awk '/^## /{c++} c==1{print} c==2{exit}' CHANGELOG.md > RELEASE_NOTES.md
-          if [ ! -s RELEASE_NOTES.md ]; then echo "See CHANGELOG.md for the full release notes." > RELEASE_NOTES.md; fi
-          cat RELEASE_NOTES.md
-      - name: Release
-        uses: softprops/action-gh-release@v2
-        with:
-          body_path: RELEASE_NOTES.md
-          files: release-assets/*
+      # ── Attach this platform's installers directly to the release ──────
+      # (release assets are free; Actions artifacts are what hit the quota)
+      - name: Upload installers to the release
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Zenodo note
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "On this first tagged release, mint/confirm the reserved DOI" \
-               "10.5281/zenodo.21673083 against this repository (§12, §19)."
+          set -e
+          B="lens-desktop/src-tauri/target"
+          if [ "$RUNNER_OS" = "macOS" ]; then B="$B/universal-apple-darwin/release/bundle"; else B="$B/release/bundle"; fi
+          mkdir -p stage
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            find "$B/deb" -type f -name '*.deb' -exec cp {} stage/ \;
+            find "$B/appimage" -type f -name '*.AppImage' -exec cp {} stage/ \;
+            WANT=2
+          elif [ "$RUNNER_OS" = "macOS" ]; then
+            find "$B/dmg" -type f -name '*.dmg' -exec cp {} stage/ \;
+            WANT=1
+          else
+            find "$B/nsis" -type f -name '*-setup.exe' -exec cp {} stage/ \;
+            find "$B/msi" -type f -name '*.msi' -exec cp {} stage/ \;
+            WANT=2
+          fi
+          GOT=$(ls stage | wc -l)
+          echo "staged $GOT installers (want $WANT)"; ls -la stage/
+          if [ "$GOT" -ne "$WANT" ]; then
+            echo "::error::expected $WANT installers, got $GOT"; exit 1
+          fi
+          gh release upload "$GITHUB_REF_NAME" stage/* \
+            --repo "$GITHUB_REPOSITORY" --clobber
+
+  verify-release:
+    name: Verify the release carries the five installers
+    needs: platform
+    runs-on: ubuntu-latest
+    steps:
+      - name: Asset check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 - <<'PY'
+          import json, os, sys, urllib.request
+          tag = os.environ["GITHUB_REF_NAME"]
+          version = tag[1:] if tag.startswith("v") else tag
+          req = urllib.request.Request(
+              f"https://api.github.com/repos/{os.environ['GITHUB_REPOSITORY']}/releases/tags/{tag}",
+              headers={"Authorization": f"token {os.environ['GH_TOKEN']}"})
+          release = json.load(urllib.request.urlopen(req))
+          names = [a["name"] for a in release["assets"]]
+          print("assets:", *names, sep="\n  ")
+          expected = [
+              f"CorpusMind.Lens_{version}_amd64.AppImage",
+              f"CorpusMind.Lens_{version}_amd64.deb",
+              f"CorpusMind.Lens_{version}_universal.dmg",
+              f"CorpusMind.Lens_{version}_x64-setup.exe",
+              f"CorpusMind.Lens_{version}_x64_en-US.msi",
+          ]
+          missing = [e for e in expected if e not in names]
+          if missing:
+              print("MISSING:", missing)
+              sys.exit(1)
+          extra = [n for n in names if n not in expected]
+          if extra:
+              print("UNEXPECTED extras at publish time:", extra)
+          print("release asset check passed:", len(names), "assets")
+          PY

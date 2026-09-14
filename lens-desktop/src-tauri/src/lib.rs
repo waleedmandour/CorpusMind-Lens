@@ -497,7 +497,7 @@ fn main() {
                 // Hoist the take() out of the if-let: newer rustc's if-let
                 // temporary scoping rejects the chained lock().take() form.
                 let mut taken = state.child.lock().unwrap().take();
-                if let Some(mut child) = taken.as_mut() {
+                if let Some(child) = taken.as_mut() {
                     info!("engine exit — killing sidecar");
                     kill_child(child);
                 }

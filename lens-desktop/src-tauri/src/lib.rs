@@ -440,8 +440,9 @@ async fn write_export_file(path: String, data_b64: String) -> Result<serde_json:
     let bytes = base64::engine::general_purpose::STANDARD
         .decode(data_b64.as_bytes())
         .map_err(|e| format!("invalid export payload: {e}"))?;
+    let len = bytes.len();
     std::fs::write(&path, bytes).map_err(|e| format!("cannot write {}: {e}", path))?;
-    info!("export saved: {} ({} bytes)", path, bytes.len());
+    info!("export saved: {} ({} bytes)", path, len);
     Ok(serde_json::json!({ "saved": true, "path": path }))
 }
 

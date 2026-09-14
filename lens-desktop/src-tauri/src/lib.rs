@@ -395,9 +395,60 @@ fn kill_child(child: &mut Child) {
     let _ = child.wait();
 }
 
+// ─── Export location chooser (v0.3.2) ───────────────────────────────
+//
+// The web layer downloads engine exports through object URLs, which in the
+// desktop webview land silently in the OS Downloads folder with no way to
+// redirect. These two commands give every export a native Save As dialog
+// (defaulting to the user's Downloads folder, so the default location is
+// always visible) followed by a direct write of the fetched bytes.
+// The dialog is opened from Rust on purpose: Rust-side dialog calls are not
+// webview capability-gated, so no `dialog:*` permission churn is needed.
+// Async commands run off the main thread, which blocking_save_file requires.
+
+#[tauri::command]
+async fn choose_export_path(
+    app: tauri::AppHandle,
+    default_file_name: String,
+) -> Result<Option<String>, String> {
+    use tauri_plugin_dialog::DialogExt;
+
+    let mut start_dir = app.path().download_dir().ok();
+    if start_dir.is_none() {
+        start_dir = std::env::var_os("HOME")
+            .or_else(|| std::env::var_os("USERPROFILE"))
+            .map(std::path::PathBuf::from);
+    }
+
+    let mut dialog = app.dialog().file();
+    if let Some(dir) = start_dir {
+        dialog = dialog.set_directory(dir);
+    }
+    let picked = dialog
+        .set_file_name(&default_file_name)
+        .blocking_save_file();
+
+    Ok(picked
+        .and_then(|fp| fp.into_path().ok())
+        .map(|p| p.to_string_lossy().into_owned()))
+}
+
+#[tauri::command]
+async fn write_export_file(path: String, data_b64: String) -> Result<serde_json::Value, String> {
+    use base64::Engine as _;
+
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(data_b64.as_bytes())
+        .map_err(|e| format!("invalid export payload: {e}"))?;
+    std::fs::write(&path, bytes).map_err(|e| format!("cannot write {}: {e}", path))?;
+    info!("export saved: {} ({} bytes)", path, bytes.len());
+    Ok(serde_json::json!({ "saved": true, "path": path }))
+}
+
 fn main() {
     env_logger::init();
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .manage(EngineManager::new())
         .manage(ai_backend::AiBackendManager::new())
         .invoke_handler(tauri::generate_handler![
@@ -405,6 +456,8 @@ fn main() {
             start_engine,
             restart_engine,
             engine_logs,
+            choose_export_path,
+            write_export_file,
             ai_backend::ai_backend_status,
             ai_backend::ai_backend_start,
             ai_backend::ai_backend_restart,

@@ -4,11 +4,13 @@ import { downloadEngineFile } from "../lib/api";
 
 /** CSV / XML / TSV / JSON export buttons for any analysis outcome.
  * The engine renders the file; this component only downloads it via an
- * object URL (works in the browser PWA and the Tauri webview alike). */
+ * object URL (browser PWA) or a native Save As dialog (desktop v0.3.2,
+ * which reports the exact saved path; the browser lands in Downloads). */
 export function ExportButtons({
-  build,
+  build, disabled,
 }: {
   build: (format: string) => { url: string; filename: string } | null;
+  disabled?: boolean;
 }) {
   const { t, toast } = useShell();
   const [busy, setBusy] = useState(false);
@@ -21,14 +23,17 @@ export function ExportButtons({
           key={f}
           className="btn secondary"
           style={{ padding: "3px 10px", fontSize: 12 }}
-          disabled={busy}
+          disabled={busy || disabled}
           onClick={async () => {
             const target = build(f);
             if (!target) return;
             setBusy(true);
             try {
-              await downloadEngineFile(target.url, target.filename);
-              toast(`${target.filename}`);
+              const out = await downloadEngineFile(target.url, target.filename);
+              if (out.cancelled) return; // user closed the Save dialog: nothing to announce
+              toast(out.savedPath
+                ? `${t.exportView.savedTo}: ${out.savedPath}`
+                : `${t.exportView.done}: ${target.filename} (${t.exportView.downloadsHint})`);
             } catch (e: any) {
               toast(`${t.common.error}: ${e?.message ?? e}`, "error");
             } finally {

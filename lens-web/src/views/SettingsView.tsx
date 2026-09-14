@@ -275,13 +275,20 @@ function AiBackendCard({ t }: { t: any }) {
 
 function ModelDefaultsCard({ t }: { t: any }) {
   const [snap, setSnap] = useState<any>(null);
-  const [installed, setInstalled] = useState<string[]>([]);
+  // v0.3.2: installed = Ollama AND LM Studio models merged, so the picker
+  // offers every model the user actually downloaded on either backend.
+  const [installed, setInstalled] = useState<{ name: string; backend: string }[]>([]);
   const [saved, setSaved] = useState(false);
 
   const reload = () => {
     api.modelDefaults().then(setSnap).catch(() => undefined);
     api.aiLocalStatus().then((s) => {
-      setInstalled((s?.ollama?.installed ?? []).map((m: any) => m.name));
+      const rows: { name: string; backend: string }[] = [];
+      (s?.ollama?.installed ?? []).forEach((m: any) =>
+        rows.push({ name: m.name, backend: "Ollama" }));
+      (s?.lmstudio?.models ?? []).forEach((name: string) =>
+        rows.push({ name, backend: "LM Studio" }));
+      setInstalled(rows);
     }).catch(() => undefined);
   };
   useEffect(reload, []);
@@ -296,23 +303,57 @@ function ModelDefaultsCard({ t }: { t: any }) {
     } catch { /* status refresh reports it */ }
   };
 
-  const picker = (field: string, label: string, current: string) => (
-    <>
-      <dt>{label}</dt>
-      <dd>
-        <select value={current} onChange={(e) => put(field, e.target.value)}
-                style={{ padding: 7, borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface-2)", maxWidth: 260 }}>
-          <option value="" disabled>{label}…</option>
-          {installed.map((m) => <option key={m} value={m}>{m}</option>)}
-        </select>
-      </dd>
-    </>
-  );
+  const clear = async (field: string) => {
+    try {
+      await api.putModelDefaults({ clear: [field] });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+      reload();
+    } catch { /* status refresh reports it */ }
+  };
+
+  const KIND_FIELD: Record<string, string> = {
+    vision_ocr_model: "vision_ocr", embed_model: "embed", chat_model: "chat" };
+
+  const picker = (field: string, label: string, current: string) => {
+    const kind = KIND_FIELD[field];
+    const row = installed.find((m) => m.name === current || current.startsWith(m.name + ":"));
+    const effectiveMissing = !row && !!current;
+    return (
+      <>
+        <dt>{label}</dt>
+        <dd>
+          {/* Only DOWNLOADED models appear here; the catalog may advertise
+              more, but a default that is not on disk would silently fall
+              back to the engine's built-in choice. */}
+          <select value={row ? current : ""} onChange={(e) => put(field, e.target.value)}
+                  style={{ padding: 7, borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface-2)", maxWidth: 260 }}>
+            <option value="" disabled>{label}…</option>
+            {installed.map((m) => (
+              <option key={`${m.backend}:${m.name}`} value={m.name}>
+                {m.name} ({m.backend})
+              </option>
+            ))}
+          </select>{" "}
+          {effectiveMissing && (
+            <>
+              <span className="chip ungrounded">{t.settings.mdNotInstalled}</span>{" "}
+              <button className="btn secondary" style={{ padding: "2px 10px", fontSize: 12 }}
+                      onClick={() => clear(kind)}>
+                {t.settings.mdReset}
+              </button>
+            </>
+          )}
+        </dd>
+      </>
+    );
+  };
 
   return (
     <div className="card">
       <h3>{t.settings.modelDefaults}</h3>
       <p className="muted" style={{ fontSize: 12 }}>{t.settings.modelDefaultsDesc}</p>
+      <p className="muted" style={{ fontSize: 12, marginTop: -4 }}>{t.settings.mdInstalledOnly}</p>
       {installed.length === 0 ? (
         <p className="muted" style={{ fontSize: 13 }}>{t.settings.mdNoModels}</p>
       ) : snap ? (

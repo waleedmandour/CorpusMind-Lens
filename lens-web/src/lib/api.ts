@@ -275,6 +275,13 @@ export const shell = {
   startEngine: () => (window as any).__TAURI__?.core.invoke("start_engine"),
   restartEngine: () => (window as any).__TAURI__?.core.invoke("restart_engine"),
   engineLogs: () => (window as any).__TAURI__?.core.invoke("engine_logs"),
+  /** v0.3.2: native Save As dialog (defaults to the OS Downloads folder).
+   * Resolves null when the user cancels. */
+  chooseExportPath: (defaultFileName: string): Promise<string | null> =>
+    (window as any).__TAURI__?.core.invoke("choose_export_path", { defaultFileName }),
+  /** v0.3.2: write fetched export bytes (base64) to the chosen path. */
+  writeExportFile: (path: string, dataB64: string): Promise<{ saved: boolean; path: string }> =>
+    (window as any).__TAURI__?.core.invoke("write_export_file", { path, dataB64 }),
   aiBackendStatus: () => (window as any).__TAURI__?.core.invoke("ai_backend_status"),
   aiBackendStart: () => (window as any).__TAURI__?.core.invoke("ai_backend_start"),
   aiBackendRestart: () => (window as any).__TAURI__?.core.invoke("ai_backend_restart"),
@@ -296,12 +303,37 @@ export async function discoverEnginePort(): Promise<void> {
   }
 }
 
+/** Fetch an engine file as base64 (desktop export path writes). */
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const s = String(reader.result ?? "");
+      resolve(s.includes(",") ? s.slice(s.indexOf(",") + 1) : s);
+    };
+    reader.onerror = () => reject(reader.error ?? new Error("could not read export data"));
+    reader.readAsDataURL(blob);
+  });
+}
+
+export type DownloadOutcome = { savedPath?: string; cancelled?: boolean };
+
 /** Download an engine-generated file (CSV/XML/...) in browser and desktop.
- * Object URLs work in both; direct cross-origin anchors do not. */
-export async function downloadEngineFile(url: string, filename: string): Promise<void> {
+ * Browser: object URL + anchor (lands in the browser's Downloads folder).
+ * Desktop (v0.3.2): a native Save As dialog defaults to the OS Downloads
+ * folder, the user may pick any location, and the bytes are written there.
+ * Returns where the file went so callers can surface the exact path. */
+export async function downloadEngineFile(url: string, filename: string): Promise<DownloadOutcome> {
   const r = await fetch(url);
   if (!r.ok) throw new LensApiError(r.status, "export failed");
   const blob = await r.blob();
+  if (isDesktopShell()) {
+    const chosen = await shell.chooseExportPath(filename);
+    if (!chosen) return { cancelled: true };
+    const dataB64 = await blobToBase64(blob);
+    await shell.writeExportFile(chosen, dataB64);
+    return { savedPath: chosen };
+  }
   const obj = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = obj;
@@ -310,6 +342,7 @@ export async function downloadEngineFile(url: string, filename: string): Promise
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(obj), 4000);
+  return {};
 }
 
 export function socialExportUrl(

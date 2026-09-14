@@ -140,7 +140,7 @@ function IssueCard({ issue, t }: { issue: Issue; t: any }) {
 }
 
 export function TaskBar() {
-  const { t, setView } = useShell();
+  const { t, setView, openPalette } = useShell();
   const tb = useTaskBar();
   const unresolved = tb.issues.filter((i) => !i.resolved);
   const showBadge = !tb.muted && (unresolved.length > 0 || !tb.backendReachable);
@@ -200,6 +200,14 @@ export function TaskBar() {
         </div>
 
         <div className="tb-right">
+          {/* v0.3.2: discoverability for the Ctrl/Cmd+K command palette
+              (the shortcut itself was previously documented only in the
+              guide; the user asked for a visible hint). */}
+          <button className="tb-chip" onClick={openPalette}
+                  title={t.taskbar.paletteHint}
+                  aria-label={t.taskbar.paletteHint}>
+            <span aria-hidden>⌘</span> Ctrl/Cmd+K
+          </button>
           {nextLabel && (
             <button
               className="tb-next"

@@ -19,6 +19,7 @@ from ..discourse.lenses import (FRAMEWORK_IDS, heuristic_lens, llm_lens, load_fr
                                 signals_from_meta)
 from ..logging import get_logger
 from ..main import get_store
+from ..models_defaults import effective_model
 
 log = get_logger(__name__)
 router = APIRouter(tags=["discourse"])
@@ -71,9 +72,12 @@ async def analyse_image(image_id: str, framework_id: str, mode: str = "heuristic
         from ..ai.providers import get_provider
 
         provider = get_provider("ollama")  # LLM discourse stays local-first; cloud via settings only
+        # v0.3.2: fall back to the user's configured default chat model
+        # (Settings → Default models) instead of a hard-coded name, so the
+        # lens runs whatever the user actually downloaded.
         try:
             llm = await llm_lens(framework_id, fw, sig, provider,
-                                 model or "moondream")
+                                 model or effective_model("chat"))
         except Exception as e:
             raise HTTPException(502, f"LLM lens failed: {e}")
         return _result(image_id, framework_id, fw, mode, started, llm)
@@ -154,7 +158,8 @@ async def _run_batch(job_id: str, images, framework_ids: list[str], mode: str) -
                     from ..ai.providers import OllamaProvider
 
                     provider = OllamaProvider()
-                    payload = await llm_lens(fid, fw, sig, provider, "moondream")
+                    payload = await llm_lens(fid, fw, sig, provider,
+                                             effective_model("chat"))
                 job["results"].append(_result(img.id, fid, fw, mode,
                                               datetime.now(UTC).isoformat(), payload))
             except Exception as e:

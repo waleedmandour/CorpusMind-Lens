@@ -16,6 +16,11 @@ export function HomeView() {
   const [bannerDismissed, setBannerDismissed] = useState(
     () => localStorage.getItem("lens.ai-banner-dismissed") === "1"
   );
+  // v0.3.2: reminder to pick default models in Settings once models exist.
+  const [noDefaults, setNoDefaults] = useState(false);
+  const [reminderDismissed, setReminderDismissed] = useState(
+    () => localStorage.getItem("lens.model-reminder-dismissed") === "1"
+  );
   const [engineDown, setEngineDown] = useState(false);
   const [checking, setChecking] = useState(false);
   const aliveRef = useRef(true);
@@ -61,6 +66,17 @@ export function HomeView() {
     api.providersStatus()
       .then((s) => setAiMissing(!s.ollama.reachable && !s.lmstudio.reachable))
       .catch(() => setAiMissing(false));
+    // v0.3.2: show the model-selection reminder when at least one model is
+    // installed but the user has not chosen any default yet (the effective
+    // defaults still silently fall back to the engine's built-ins).
+    Promise.all([api.aiLocalStatus(), api.modelDefaults()])
+      .then(([st, snap]) => {
+        const haveModels =
+          (st?.ollama?.installed?.length ?? 0) + (st?.lmstudio?.models?.length ?? 0) > 0;
+        const overrides = snap?.overrides ?? {};
+        setNoDefaults(haveModels && Object.keys(overrides).length === 0);
+      })
+      .catch(() => undefined);
     refresh().catch(() => undefined);
     return () => {
       aliveRef.current = false;
@@ -71,6 +87,22 @@ export function HomeView() {
   const dismiss = () => {
     localStorage.setItem("lens.ai-banner-dismissed", "1");
     setBannerDismissed(true);
+  };
+
+  const dismissReminder = () => {
+    localStorage.setItem("lens.model-reminder-dismissed", "1");
+    setReminderDismissed(true);
+  };
+
+  const doDeleteProject = async (id: string, pname: string) => {
+    if (!confirm(`${t.overview.deleteProjectConfirm} (${pname})`)) return;
+    try {
+      await api.deleteProject(id);
+      await refresh();
+      toast(t.overview.deletedProject);
+    } catch (e: any) {
+      toast(`${t.common.error}: ${e?.message ?? e}`, "error");
+    }
   };
 
   const workflow: { title: string; body: string; cta: string; view: ViewId; glyph: string }[] = [
@@ -127,6 +159,23 @@ export function HomeView() {
             <span className="row">
               <button className="btn secondary" onClick={() => setView("settings")}>{t.nav.settings}</button>
               <button className="btn secondary" onClick={dismiss}>✕</button>
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* v0.3.2: models are installed but no defaults chosen — point the
+          user at Settings → Default models (deep link, dismissible). */}
+      {noDefaults && !reminderDismissed && !aiMissing && (
+        <div className="card" style={{ borderInlineStart: "4px solid #2563eb" }}>
+          <div className="row" style={{ justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+            <div style={{ fontSize: 13, maxWidth: 640 }}>
+              <strong style={{ display: "block", marginBottom: 4 }}>{t.overview.modelReminderTitle}</strong>
+              <span className="muted" style={{ lineHeight: 1.6 }}>{t.overview.modelReminderBody}</span>
+            </div>
+            <span className="row">
+              <button className="btn" onClick={() => setView("settings")}>{t.overview.modelReminderCta}</button>
+              <button className="btn secondary" onClick={dismissReminder} aria-label={t.common.cancel}>✕</button>
             </span>
           </div>
         </div>
@@ -193,6 +242,14 @@ export function HomeView() {
                 }}
               >
                 {t.overview.createSet}
+              </button>
+              <button
+                className="btn secondary"
+                title={t.overview.deleteProject}
+                aria-label={`${t.overview.deleteProject}: ${p.name}`}
+                onClick={() => doDeleteProject(p.id, p.name)}
+              >
+                ✕
               </button>
             </div>
             {(sets[p.id] ?? []).map((s) => (

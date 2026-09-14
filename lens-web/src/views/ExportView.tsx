@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useShell } from "../shell";
-import { api, downloadEngineFile, engineUrl } from "../lib/api";
+import { api, downloadEngineFile, engineUrl, socialExportUrl } from "../lib/api";
 import { ExportButtons } from "../components/ui";
 
 /**
@@ -37,12 +37,30 @@ export function ExportView() {
   const [dim, setDim] = useState("shot_scale");
   const [methods, setMethods] = useState<string | null>(null);
   const [methodsBusy, setMethodsBusy] = useState(false);
+  // v0.3.2: the Export page now also covers the social corpora (the per-
+  // analysis exports inside the Social tab export one table; this exports
+  // the whole post corpus). Project list mirrors the Social tab.
+  const [projects, setProjects] = useState<any[]>([]);
+  const [socialProject, setSocialProject] = useState("");
 
-  const grab = (url: string, filename: string) => {
+  useEffect(() => {
+    api.listProjects().then((ps) => {
+      setProjects(ps);
+      setSocialProject((cur) => cur || (ps[0]?.id ?? ""));
+    }).catch(() => undefined);
+  }, []);
+
+  const grab = async (url: string, filename: string) => {
     if (!sid) return;
-    downloadEngineFile(url, filename)
-      .then(() => toast(`${t.exportView.done}: ${filename}`))
-      .catch((e: any) => toast(`${t.common.error}: ${e?.message ?? e}`, "error"));
+    try {
+      const out = await downloadEngineFile(url, filename);
+      if (out.cancelled) return;
+      toast(out.savedPath
+        ? `${t.exportView.savedTo}: ${out.savedPath}`
+        : `${t.exportView.done}: ${filename} (${t.exportView.downloadsHint})`);
+    } catch (e: any) {
+      toast(`${t.common.error}: ${e?.message ?? e}`, "error");
+    }
   };
 
   const draftMethods = async () => {
@@ -97,6 +115,31 @@ export function ExportView() {
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* v0.3.2: social corpora get a first-class export section here,
+              mirroring the in-tab exports of the Social Media page. */}
+          <div className="card">
+            <h3>{t.exportView.socialTitle}</h3>
+            <p className="muted" style={{ fontSize: 13 }}>{t.exportView.socialDesc}</p>
+            <div className="row" style={{ gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
+              <select value={socialProject} onChange={(e) => setSocialProject(e.target.value)}
+                      style={{ padding: 8, borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface-2)" }}
+                      aria-label={t.overview.projects}>
+                <option value="" disabled>{t.overview.projects}…</option>
+                {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            </div>
+            {socialProject ? (
+              <ExportButtons
+                build={(f) => ({
+                  url: socialExportUrl(socialProject, "posts", f),
+                  filename: `lens-posts-${socialProject}.${f}`,
+                })}
+              />
+            ) : (
+              <p className="muted" style={{ fontSize: 13, marginBottom: 0 }}>{t.social.noPosts}</p>
+            )}
           </div>
 
           <div className="card">

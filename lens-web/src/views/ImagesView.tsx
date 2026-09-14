@@ -142,17 +142,59 @@ export function ImagesView() {
   const dims = schema?.dimensions ?? [];
   const activeSet = sets.find((s) => s.id === activeSetId);
   const processingCount = images.filter((i) => i.status === "processing" || i.status === "pending").length;
+  // The polled gallery list is the source of truth for the selected image's
+  // filename/status, so the detail header renders even while processing.
+  const selectedImage = images.find((i) => i.id === selected) ?? null;
+
+  const doDeleteImage = async () => {
+    if (!selected) return;
+    if (!confirm(t.images.deleteConfirm)) return;
+    try {
+      await api.deleteImage(selected);
+      setSelected(null);
+      setAnalysis(null);
+      toast(t.images.deleted);
+    } catch (e: any) {
+      toast(`${t.common.error}: ${e?.message ?? e}`, "error");
+    }
+  };
+
+  const doReanalyze = async () => {
+    if (!selected) return;
+    setBusy("reanalyze");
+    try {
+      await api.reanalyze(selected);
+      toast(t.images.reanalyzed);
+    } catch (e: any) {
+      toast(`${t.common.error}: ${e?.message ?? e}`, "error");
+    } finally {
+      setBusy("");
+    }
+  };
+
+  const doDeleteSet = async (setId: string) => {
+    if (!confirm(t.images.deleteSetConfirm)) return;
+    try {
+      await api.deleteImageSet(setId);
+      if (activeSetId === setId) setActiveSetId(null);
+      await load();
+      toast(t.images.deletedSet);
+    } catch (e: any) {
+      toast(`${t.common.error}: ${e?.message ?? e}`, "error");
+    }
+  };
 
   const exportXlsx = async () => {
     if (!activeSetId) return;
     try {
-      const blob = await api.exportSet(activeSetId, "xlsx");
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `lens-set-${activeSetId}.xlsx`;
-      a.click();
-      URL.revokeObjectURL(url);
+      const out = await downloadEngineFile(
+        `${engineUrl()}/api/v1/imagesets/${activeSetId}/export?format=xlsx`,
+        `lens-set-${activeSetId}.xlsx`
+      );
+      if (out.cancelled) return;
+      toast(out.savedPath
+        ? `${t.exportView.savedTo}: ${out.savedPath}`
+        : `${t.exportView.done}: lens-set-${activeSetId}.xlsx (${t.exportView.downloadsHint})`);
     } catch (e: any) {
       toast(`${t.common.error}: ${e?.message ?? e}`, "error");
     }
@@ -167,17 +209,27 @@ export function ImagesView() {
         <h3>{t.images.sets}</h3>
         <div className="row" style={{ flexWrap: "wrap" }}>
           {sets.map((s) => (
-            <button
-              key={s.id}
-              className={`btn secondary`}
-              style={s.id === activeSetId
-                ? { outline: "2px solid var(--lens-accent)", fontWeight: 600 }
-                : undefined}
-              onClick={() => setActiveSetId(s.id)}
-            >
-              {s.name}
-              {s.id === activeSetId ? ` ✓ (${t.images.selected})` : ""}
-            </button>
+            <span key={s.id} className="row" style={{ gap: 0 }}>
+              <button
+                className={`btn secondary`}
+                style={s.id === activeSetId
+                  ? { outline: "2px solid var(--lens-accent)", fontWeight: 600, borderStartEndRadius: 0, borderEndEndRadius: 0 }
+                  : { borderStartEndRadius: 0, borderEndEndRadius: 0 }}
+                onClick={() => setActiveSetId(s.id)}
+              >
+                {s.name}
+                {s.id === activeSetId ? ` ✓ (${t.images.selected})` : ""}
+              </button>
+              <button
+                className="btn secondary"
+                style={{ borderStartStartRadius: 0, borderEndStartRadius: 0, paddingInline: 8 }}
+                title={t.images.deleteSet}
+                aria-label={`${t.images.deleteSet}: ${s.name}`}
+                onClick={() => doDeleteSet(s.id)}
+              >
+                ✕
+              </button>
+            </span>
           ))}
           {sets.length === 0 && <span className="muted">{t.images.noImages}</span>}
         </div>
@@ -238,31 +290,35 @@ export function ImagesView() {
           </div>
 
           {selected && (
-            analysis ? (
-              <>
-                <div className="card">
-                  <div className="row" style={{ justifyContent: "space-between" }}>
-                    <h3 style={{ margin: 0 }}>{t.images.details} — {analysis.image?.filename ?? selected}</h3>
-                    <div className="row" style={{ gap: 6 }}>
-                      <button className="btn secondary" style={{ padding: "3px 10px", fontSize: 12 }}
-                              onClick={runVisionOcr} disabled={busy === "vocr"}>
-                        {busy === "vocr" ? t.common.processing : t.images.runVisionOcr}
-                      </button>
-                      <button className="btn secondary" style={{ padding: "3px 10px", fontSize: 12 }}
-                              onClick={async () => {
-                                try {
-                                  await api.deleteImage(selected);
-                                  setSelected(null);
-                                  setAnalysis(null);
-                                  toast(t.images.deleted);
-                                } catch (e: any) {
-                                  toast(`${t.common.error}: ${e?.message ?? e}`, "error");
-                                }
-                              }}>
-                        {t.images.delete}
-                      </button>
-                    </div>
+            <>
+              {/* v0.3.2: the detail header (and its actions) now render for
+                  EVERY selected image, not only once its analysis exists —
+                  processing and failed images were previously action-less. */}
+              <div className="card">
+                <div className="row" style={{ justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+                  <h3 style={{ margin: 0 }}>
+                    {t.images.details} — {selectedImage?.filename ?? selected}
+                    {selectedImage && selectedImage.status !== "ready" && (
+                      <span className="chip" style={{ marginInlineStart: 8 }}>{selectedImage.status}</span>
+                    )}
+                  </h3>
+                  <div className="row" style={{ gap: 6 }}>
+                    <button className="btn secondary" style={{ padding: "3px 10px", fontSize: 12 }}
+                            onClick={runVisionOcr} disabled={busy === "vocr"}>
+                      {busy === "vocr" ? t.common.processing : t.images.runVisionOcr}
+                    </button>
+                    <button className="btn secondary" style={{ padding: "3px 10px", fontSize: 12 }}
+                            onClick={doReanalyze} disabled={busy === "reanalyze"}
+                            title={t.images.reanalyzeHint}>
+                      {busy === "reanalyze" ? t.common.processing : t.images.reanalyze}
+                    </button>
+                    <button className="btn secondary" style={{ padding: "3px 10px", fontSize: 12 }}
+                            onClick={doDeleteImage}>
+                      {t.images.delete}
+                    </button>
                   </div>
+                </div>
+                {analysis ? (
                   <dl className="kv" style={{ marginTop: 10 }}>
                     <dt>{t.images.ocr}</dt>
                     <dd>
@@ -290,44 +346,44 @@ export function ImagesView() {
                     <dt>{t.images.typography}</dt>
                     <dd className="evidence">{JSON.stringify(analysis.typography ?? {})}</dd>
                   </dl>
-                </div>
+                ) : (
+                  <p className="muted" style={{ marginTop: 10, marginBottom: 0 }}>{t.images.analysisMissing}</p>
+                )}
+              </div>
 
-                <div className="card">
-                  <h3>{t.images.annotate}</h3>
-                  {dims.map((d: any) => {
-                    const active: string[] = annotations?.dimensions?.[d.id]?.values ?? [];
-                    return (
-                      <div key={d.id} style={{ marginBottom: 10 }}>
-                        <strong>{ar ? d.label_ar : d.label_en}</strong>{" "}
-                        {!ar && <span className="muted" style={{ fontSize: 12 }}>{d.label_ar}</span>}
-                        <div className="row" style={{ marginTop: 4 }}>
-                          {d.categories.map((c: any) => (
-                            <button
-                              key={c.id}
-                              className={active.includes(c.id) ? "btn" : "btn secondary"}
-                              style={{ fontSize: 12, padding: "4px 10px" }}
-                              onClick={() => toggleAnnotation(d.id, c.id)}
-                              title={ar ? c.description_ar : c.description_en}
-                            >
-                              {ar ? c.label_ar : c.label_en}
-                            </button>
-                          ))}
-                        </div>
+              <div className="card">
+                <h3>{t.images.annotate}</h3>
+                {dims.map((d: any) => {
+                  const active: string[] = annotations?.dimensions?.[d.id]?.values ?? [];
+                  return (
+                    <div key={d.id} style={{ marginBottom: 10 }}>
+                      <strong>{ar ? d.label_ar : d.label_en}</strong>{" "}
+                      {!ar && <span className="muted" style={{ fontSize: 12 }}>{d.label_ar}</span>}
+                      <div className="row" style={{ marginTop: 4 }}>
+                        {d.categories.map((c: any) => (
+                          <button
+                            key={c.id}
+                            className={active.includes(c.id) ? "btn" : "btn secondary"}
+                            style={{ fontSize: 12, padding: "4px 10px" }}
+                            onClick={() => toggleAnnotation(d.id, c.id)}
+                            title={ar ? c.description_ar : c.description_en}
+                          >
+                            {ar ? c.label_ar : c.label_en}
+                          </button>
+                        ))}
                       </div>
-                    );
-                  })}
-                  <button className="btn secondary"
-                          onClick={async () => {
-                            await api.bulkTag(activeSetId, ["reviewed"]);
-                            toast(t.images.bulkTag);
-                          }}>
-                    {t.images.bulkTag}
-                  </button>
-                </div>
-              </>
-            ) : (
-              <div className="card"><p className="muted">{t.images.analysisMissing}</p></div>
-            )
+                    </div>
+                  );
+                })}
+                <button className="btn secondary"
+                        onClick={async () => {
+                          await api.bulkTag(activeSetId, ["reviewed"]);
+                          toast(t.images.bulkTag);
+                        }}>
+                  {t.images.bulkTag}
+                </button>
+              </div>
+            </>
           )}
 
           {stats && (
@@ -348,7 +404,11 @@ export function ImagesView() {
                 <button className="btn secondary" onClick={() => downloadEngineFile(
                   `${engineUrl()}/api/v1/imagesets/${activeSetId}/ocrtools/export-corpus?format=json`,
                   `lens-corpus-${activeSetId}.json`
-                )}>
+                ).then((out) => {
+                  if (!out.cancelled) toast(out.savedPath
+                    ? `${t.exportView.savedTo}: ${out.savedPath}`
+                    : `${t.exportView.done}: lens-corpus-${activeSetId}.json (${t.exportView.downloadsHint})`);
+                }).catch((e: any) => toast(`${t.common.error}: ${e?.message ?? e}`, "error"))}>
                   {t.exportView.corpus} JSON
                 </button>
                 <button className="btn" onClick={() => setView("text")}>{t.nav.text} →</button>

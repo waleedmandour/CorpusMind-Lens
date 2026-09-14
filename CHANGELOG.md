@@ -2,6 +2,31 @@
 
 All notable changes to **CorpusMind Lens** are documented here, in the parent project's prose style: each entry explains *why*, not just *what*.
 
+## [0.3.2] - 2026-09-14 - The refinement release: first-testing fixes, export choice, and honest naming
+
+**Why:** v0.3.1 was the first version tested end to end by the project owner, and the round surfaced six concrete frictions plus a handful of smaller inconsistencies. Several were trust issues rather than crashes: a Vision Analysis page that never touched the local LLM even though the engine supported it, default-model pickers that advertised models the user had never downloaded, and exports that silently landed in Downloads with no confirmation of where. v0.3.2 closes all six reports, ships the smaller polish items alongside them, and aligns the Social Media vocabulary with what the analyses actually are.
+
+### Fixed
+
+- **The Delete action is always available for images.** The image detail header now renders for every selected image, including ones still processing or failed, with Delete (confirm-guarded), Re-run OCR, and a new Re-run analysis action. Previously the buttons appeared only after an analysis existed, leaving fresh and broken images action-less.
+- **Vision Analysis really uses the local LLM when asked.** The Discourse lenses tab gains an explicit mode selector: Heuristic (deterministic) or Local LLM, with the effective chat model shown as a chip and an explanatory note. The view previously hard-coded heuristic mode, so the engine's `mode=llm` path was silently unreachable from the interface. Failed runs now produce an inline, actionable message (start Ollama or LM Studio, pull a model, run again) instead of an unhandled rejection.
+- **The engine no longer falls back to a hard-coded model name.** LLM lens runs (single image and batch) resolve their model from Settings → Default models via the existing authority chain, so the user's downloaded default is what actually runs; the previous `moondream` constant ignored the defaults entirely.
+- **Default models read from downloaded models only.** The pickers on Settings → Default models now list exactly what is installed, merged across Ollama and LM Studio (LM Studio's loaded models were previously invisible), each labelled with its backend. If the currently effective default is not installed, the card says so and offers a one-click reset to the built-in default instead of silently leaving a blank select.
+- **The LM Studio status line no longer hides its models.** `/ai/local/status` reports the LM Studio model list alongside Ollama's, which is what makes the merged picker honest.
+
+### Added
+
+- **A Save As dialog for every export (desktop).** All engine exports, from battery tables to the social corpus, now open the native Save dialog defaulting to the Downloads folder; the user can pick any location, and the toast confirms the exact saved path. In the browser the download is unchanged, and the toast points at the Downloads folder so the destination is never a mystery. Cancelled dialogs are silent by design.
+- **A model-selection reminder on Home.** When models are installed but no defaults have been chosen, a dismissible card explains that Lens is still on built-in defaults and deep-links to Settings → Default models.
+- **Textual Analyses and Engagement and Network Analyses.** The Social Media tabs formerly labelled by their lead analysis are renamed to what they contain: the textual battery (frequency, diversity, n-grams, KWIC) and the engagement and network battery (emoji, hashtags, hashtag network, engagement, engagement-weighted keyness, timeline). The export row is now always visible in both tabs (dimmed until a run produces a table), and the Posts tab keeps its full-corpus export.
+- **A signpost to CorpusMind under Textual Analyses.** A short note tells researchers where to go for heavier analysis (flexible concordancing, semantic tagging, wider statistical modelling) and links the free CorpusMind download page; both languages carry it.
+- **Delete for projects and image sets.** The Home page projects and the Images page set chips gain confirm-guarded delete actions, wired to the engine DELETE endpoints that already existed.
+- **A visible command-palette hint in the task bar** (Ctrl/Cmd+K chip that opens the palette), a social media corpus export section on the Export & Methods page, and inline run errors for the battery and visual grammar tabs.
+
+### Changed
+
+- Versions bumped to 0.3.2 across the engine, desktop shell, web client, and citation metadata; user guide (EN/AR) refreshed for the new vocabulary and export flow.
+
 ## [0.3.1] - 2026-09-13 - Identity release: the right icon on every surface
 
 **Why:** Within a day of v0.3.0, two packaging leftovers from the parent-app scaffold surfaced and made a correct build look like an old one. First, the Windows .ico and macOS .icns inside the installers still carried the parent CorpusMind artwork: the icon set had been regenerated only partially when Lens got its own repository, so Windows taskbars and macOS Docks showed the parent product's icon next to a v0.3.0 About page. Second, the README download table still named v0.2.1 files (some in a filename pattern that has not existed since v0.1.x), so following the README's own links reinstalled the previous release. Nothing about the application code changed; this release exists so that what a researcher installs finally looks, and links, like the current Lens.

@@ -283,8 +283,10 @@ export function SocialView() {
             {(
               [
                 ["posts", t.social.posts],
-                ["text", t.social.analyses + " · " + t.social.textFreq],
-                ["social", t.social.analyses + " · " + t.social.emoji],
+                // v0.3.2 naming: the word-frequency tab covers the whole
+                // textual battery; the emoji tab covers engagement + network.
+                ["text", t.social.tabTextual],
+                ["social", t.social.tabEngagement],
                 ["sources", t.social.sources],
               ] as [Tab, string][]
             ).map(([id, label], i) => (
@@ -487,6 +489,7 @@ export function SocialView() {
           )}
 
           {(tab === "text" || tab === "social") && (
+            <>
             <Card>
               <div className="row" style={{ gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
                 {(tab === "text" ? ANALYSES_TEXT : ANALYSES_SOCIAL).map((a) => (
@@ -550,14 +553,18 @@ export function SocialView() {
                 <button className="btn" disabled={busy || (analysis === "text-kwic" && !kwicQuery) || (analysis === "keyness" && !otherProject)} onClick={() => runAnalysis(analysis)}>
                   {t.workbench.run}
                 </button>
-                {result && (
-                  <ExportButtons
-                    build={(fmt) => ({
-                      url: socialExportUrl(projectId, analysis, fmt, { ...exportParams }),
-                      filename: `lens-${analysis}-${projectId}.${fmt}`,
-                    })}
-                  />
-                )}
+                {/* v0.3.2: the export row is ALWAYS visible (dimmed until a
+                    run produces a table), so every analysis is discoverably
+                    exportable as CSV/XML/TSV/JSON. */}
+                <ExportButtons
+                  disabled={!result || busy}
+                  build={(fmt) => result
+                    ? ({
+                        url: socialExportUrl(projectId, analysis, fmt, { ...exportParams }),
+                        filename: `lens-${analysis}-${projectId}.${fmt}`,
+                      })
+                    : null}
+                />
               </div>
 
               {busy ? (
@@ -600,6 +607,21 @@ export function SocialView() {
                 <p className="muted">{t.workbench.run} →</p>
               )}
             </Card>
+
+            {/* v0.3.2: under Textual Analyses, signpost the parent suite.
+                Lens covers the visual-first pipeline; heavier corpus-
+                linguistic work belongs in CorpusMind itself. */}
+            {tab === "text" && (
+              <div className="notice" style={{ marginTop: 12, fontSize: 13, lineHeight: 1.7 }}>
+                <strong>{t.social.parentNoteTitle}: </strong>
+                {t.social.parentNoteBody}{" "}
+                <a href="https://github.com/waleedmandour/CorpusMind/releases"
+                   target="_blank" rel="noreferrer" className="lens-link">
+                  {t.social.parentNoteLink}
+                </a>
+              </div>
+            )}
+            </>
           )}
 
           {tab === "sources" && (

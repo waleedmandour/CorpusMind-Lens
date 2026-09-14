@@ -42,6 +42,9 @@ interface ShellState {
   welcomeOpen: boolean;
   openWelcome: () => void;
   closeWelcome: () => void;
+  /** v0.3.2: so the task-bar hint chip can open the palette without the
+   * keyboard shortcut (discoverability for the Ctrl/Cmd+K command palette). */
+  openPalette: () => void;
 }
 
 const Ctx = createContext<ShellState | null>(null);
@@ -199,6 +202,7 @@ export function ShellProvider({ children }: { children: React.ReactNode }) {
         setWelcomeOpen(false);
         localStorage.setItem("lens.welcome.v3.done", "1");
       },
+      openPalette: () => setPaletteOpen(true),
     }),
     [view, lang, theme, activeSetId, welcomeOpen, toasts.length]
   );

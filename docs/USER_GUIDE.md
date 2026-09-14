@@ -63,6 +63,8 @@ Automatic, deterministic analysis per image includes:
 
 Open **Images**, pick a set, then an image: the detail view is the annotation editor. The five dimensions (Visual Morphology, Attentional Framing, Filmic Shot Scale, Path Structure & Transitions, Multimodal Integration) each offer multi-select categories plus a free-text note. Hover a category for its scholarly definition. Bulk-tag whole sets from the same view. Category names are validated on the server: a typo can never silently corrupt your corpus.
 
+The detail header carries three actions and is always available, whatever the image's state: **Re-run OCR with vision model**, **Re-run analysis** (repeats the full background pipeline for that image), and **Delete image** (asks for confirmation). Image sets can be deleted from the set chips (the ✕ beside each name, confirmation required), and whole projects from the Overview page.
+
 ## 5. Vision Analysis: measures and lenses
 
 The **Vision Analysis** page carries the quantitative and theoretical layers for your image corpus.
@@ -75,7 +77,7 @@ The **Vision Analysis** page carries the quantitative and theoretical layers for
 - **Keyness**: compare any two sets; results always pair *significance* (log-likelihood) with *effect sizes* (Log Ratio, %DIFF, Simple Maths, Odds Ratio). A Cochran flag warns when χ² is unreliable on sparse data.
 - **Visual KWIC**: concordance lines for any category with co-annotation context.
 
-**Lenses.** The same page offers the twelve theoretical lenses (Kress & van Leeuwen, Halliday, Fairclough/van Dijk/Wodak/Machin & Mayr, Barthes, Peirce, Lakoff & Johnson, Martin & White, Toulmin, Aristotle). Run one on an image and you receive **claims**, each with:
+**Lenses.** The same page offers the twelve theoretical lenses (Kress & van Leeuwen, Halliday, Fairclough/van Dijk/Wodak/Machin & Mayr, Barthes, Peirce, Lakoff & Johnson, Martin & White, Toulmin, Aristotle). Pick a **mode** first: *Heuristic (deterministic)* computes the claims locally from the measured signals, while *Local LLM* sends only the evidence bundle and the framework's guardrails to your installed Ollama or LM Studio model (the default chat model from Settings; shown as a chip). Run one on an image and you receive **claims**, each with:
 - the claim, phrased as a hypothesis ("Under a Kress & van Leeuwen reading, …");
 - the evidence that produced it (feature paths you can inspect);
 - a confidence value and provenance badge (mode, model).
@@ -105,16 +107,20 @@ The Social tab builds social media corpora two ways, and both feed the same anal
 
 **Fetch through an official free-tier API.** For public content on Mastodon (no key needed, just an instance such as mastodon.social), Reddit (create a free "script" app at reddit.com/prefs/apps and enter the client id and secret; fetch new, top, hot or search results from a subreddit), or YouTube (a free API key from Google Cloud Console; search videos or fetch one video with its comment threads). Credentials are used for that one request and never stored; requests stay within the platform's free rate limits and only public content is requested. A terms-of-service confirmation is required before the first fetch.
 
-**Analyses.** Word frequency, lexical diversity (TTR, Guiraud's R, MATTR, STTR), n-grams, KWIC concordance, emoji frequency, hashtag frequency, a hashtag co-occurrence network, engagement statistics, engagement-weighted frequency, a posting time series, and keyness against another project. Every result exports as CSV, XML, TSV or JSON, and the post corpus itself exports with all harvested markers.
+**Analyses.** The **Textual Analyses** tab carries word frequency, lexical diversity (TTR, Guiraud's R, MATTR, STTR), n-grams and the KWIC concordance; the **Engagement and Network Analyses** tab carries emoji frequency, hashtag frequency, a hashtag co-occurrence network, engagement statistics, engagement-weighted frequency, a posting time series, and keyness against another project. The export row is always visible in both tabs: run an analysis and the CSV, XML, TSV and JSON buttons light up, and the post corpus itself exports from the Posts tab.
+
+**Going deeper.** Under Textual Analyses a short note points to **CorpusMind**, the desktop suite Lens grew out of: for flexible concordancing, semantic tagging and wider statistical modelling, export your corpus and open it there (free download from github.com/waleedmandour/CorpusMind/releases).
 
 ## 9. Export
 
-The **Export** page gathers everything a project can emit: batteries, concordances, wordlists, collocations, social analyses and the post corpus, in xlsx/csv/tsv/json (xml for concordances and social exports), including the auto-drafted **Methods paragraph** naming every model and formula version used.
+The **Export** page gathers everything a project can emit: batteries, concordances, wordlists, collocations, the social media corpus (per project, all platforms) and the post corpus, in xlsx/csv/tsv/json (xml for concordances and social exports), including the auto-drafted **Methods paragraph** naming every model and formula version used.
+
+**Where files go.** In the desktop app every export opens a **Save As** dialog that starts in your Downloads folder; pick any location and the confirmation toast shows the exact saved path. In the browser the download lands in the browser's Downloads folder, and the toast tells you so.
 
 ## 10. Settings reference
 
 - **AI backend & models**: detect/install Ollama or LM Studio, machine specs, fit badges, catalogue and HuggingFace search.
-- **Model defaults**: which installed model each job uses (vision OCR assist, embeddings, Assistant).
+- **Model defaults**: which installed model each job uses (vision OCR assist, embeddings, Assistant). Only models **actually downloaded on this machine** are listed, merged from Ollama and LM Studio with the backend named; if the effective default is not installed, the card says so and can reset the slot to the built-in default.
 - **Capabilities**: what the engine may do (person/face analysis stays opt-in and off by default).
 - **AI providers**: cloud settings, off by default; when enabled an indicator stays visible.
 - **Ethics**: the guarantees below (§11).

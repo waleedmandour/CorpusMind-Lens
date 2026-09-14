@@ -140,10 +140,21 @@ async def local_status() -> dict:
                     })
         except Exception:
             pass
+    # v0.3.2: surface LM Studio's loaded/catalogued models too, so the
+    # Settings default-model pickers can offer EVERY locally installed
+    # model, not just the Ollama ones (the picker must never offer a
+    # model the user has not actually downloaded).
+    lm_reachable = await lmstudio.health()
+    lm_models: list[str] = []
+    if lm_reachable:
+        try:
+            lm_models = await lmstudio.list_models()
+        except Exception:
+            lm_models = []
     return {
         "ollama": {"reachable": reachable, "installed": installed,
                    "exe_found": find_ollama_exe() is not None},
-        "lmstudio": {"reachable": await lmstudio.health()},
+        "lmstudio": {"reachable": lm_reachable, "models": lm_models},
         "machine": specs,
         "recommended": C.recommended(specs),
         "pullable_via": "ollama pull hf.co/<user>/<repo>:<quant> (GGUF) — search in /ai/catalog",

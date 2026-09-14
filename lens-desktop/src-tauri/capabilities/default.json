@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Default capability set for CorpusMind Lens desktop (own repo, own identity). v0.2.1: the tauri-plugin-{shell,dialog,fs,http} entries were removed because those plugins were declared in Cargo.toml and permissioned here but NEVER registered in lib.rs, and the frontend calls none of their APIs (it uses only core invoke/event plus plain fetch, which is governed by the CSP in tauri.conf.json, not by capabilities). Capabilities now document exactly what the running app uses: the Tauri core.",
+  "description": "Default capability set for CorpusMind Lens desktop (own repo, own identity). v0.2.1: the tauri-plugin-{shell,fs,http} entries were removed because those plugins were declared in Cargo.toml and permissioned here but NEVER registered in lib.rs. v0.3.2: tauri-plugin-dialog IS registered, but only invoked from Rust (the export Save As flow in lib.rs), and Rust-side dialog calls are not webview capability-gated, so no dialog:* permission is listed here. The frontend uses core invoke/event plus plain fetch, which is governed by the CSP in tauri.conf.json. Capabilities document exactly what the running webview uses: the Tauri core, plus the app's own export commands.",
   "windows": [
     "main"
   ],

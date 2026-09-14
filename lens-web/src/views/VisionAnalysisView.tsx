@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { useShell } from "../shell";
 import { api, batteryExportUrl } from "../lib/api";
 import { ExportButtons, RowsTable, EmptyState } from "../components/ui";
-
 /**
  * Vision Analysis (v0.3) — the analysis half of the old Workbench, on its
  * own page: the statistical battery over visual annotations, Kress & van
@@ -46,6 +45,17 @@ export function VisionAnalysisView() {
   const [frameworks, setFrameworks] = useState<any[]>([]);
   const [framework, setFramework] = useState("kress-van-leeuwen");
   const [claims, setClaims] = useState<any>(null);
+  // v0.3.2: the discourse lens now exposes BOTH modes in the UI. The engine
+  // always supported mode=llm; the view previously hard-coded "heuristic",
+  // so the local-LLM interpretation was silently unreachable.
+  const [mode, setMode] = useState<"heuristic" | "llm">("heuristic");
+  const [chatModel, setChatModel] = useState("");
+  // v0.3.2: inline, actionable run errors (previously unhandled rejections).
+  const [runError, setRunError] = useState<{ where: string; message: string } | null>(null);
+
+  useEffect(() => {
+    api.modelDefaults().then((s) => setChatModel(s?.chat_model ?? "")).catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     if (!sid) return;
@@ -69,8 +79,11 @@ export function VisionAnalysisView() {
   const runBattery = async () => {
     if (!sid) return;
     setBusy("battery");
+    setRunError(null);
     try {
       setBattery(await api.fullBattery(sid, dim));
+    } catch (e: any) {
+      setRunError({ where: "battery", message: String(e?.message ?? e) });
     } finally {
       setBusy("");
     }
@@ -79,8 +92,11 @@ export function VisionAnalysisView() {
   const runVG = async () => {
     if (!selected) return;
     setBusy("vg");
+    setRunError(null);
     try {
       setVg(await api.visualGrammar(selected));
+    } catch (e: any) {
+      setRunError({ where: "vg", message: String(e?.message ?? e) });
     } finally {
       setBusy("");
     }
@@ -89,8 +105,17 @@ export function VisionAnalysisView() {
   const runLens = async () => {
     if (!selected) return;
     setBusy("lens");
+    setRunError(null);
     try {
-      setClaims(await api.discourseAnalyse(selected, framework, "heuristic"));
+      setClaims(await api.discourseAnalyse(selected, framework, mode));
+    } catch (e: any) {
+      const msg = String(e?.message ?? e);
+      setRunError({
+        where: "lens",
+        message: mode === "llm"
+          ? `${t.vision.llmError} (${msg})`
+          : msg,
+      });
     } finally {
       setBusy("");
     }
@@ -144,6 +169,9 @@ export function VisionAnalysisView() {
                   {busy === "battery" ? t.common.processing : t.workbench.run}
                 </button>
               </div>
+              {runError?.where === "battery" && (
+                <p className="notice" style={{ marginTop: 8, marginBottom: 10 }} role="alert">{runError.message}</p>
+              )}
               {battery && (
                 <>
                   <h3 style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
@@ -216,6 +244,9 @@ export function VisionAnalysisView() {
                   <button className="btn" onClick={runVG} disabled={busy === "vg"}>
                     {busy === "vg" ? t.common.processing : t.vision.vgRun}
                   </button>
+                  {runError?.where === "vg" && (
+                    <p className="notice" style={{ marginTop: 8 }} role="alert">{runError.message}</p>
+                  )}
                   {vg && (
                     <div style={{ marginTop: 10 }}>
                       {Object.entries(vg.metafunctions).map(([mf, list]: [string, any]) => (
@@ -246,16 +277,38 @@ export function VisionAnalysisView() {
                 <EmptyState glyph="⚖" title={t.vision.needSet} />
               ) : (
                 <>
-                  <div className="row" style={{ marginBottom: 10 }}>
+                  <div className="row" style={{ marginBottom: 10, flexWrap: "wrap" }}>
                     <select value={framework} onChange={(e) => setFramework(e.target.value)}
                             style={{ padding: 8, borderRadius: 8, border: "1px solid var(--border)",
-                                     background: "var(--surface-2)", minWidth: 240 }}>
+                                     background: "var(--surface-2)", minWidth: 220 }}
+                            aria-label={t.vision.framework}>
                       {frameworks.map((f) => <option key={f.id} value={f.id}>{f.full_name}</option>)}
                     </select>
+                    {/* v0.3.2: heuristic vs local-LLM mode, explicit and labelled. */}
+                    <select value={mode} onChange={(e) => setMode(e.target.value as "heuristic" | "llm")}
+                            style={{ padding: 8, borderRadius: 8, border: "1px solid var(--border)",
+                                     background: "var(--surface-2)" }}
+                            aria-label={t.vision.mode}>
+                      <option value="heuristic">{t.vision.modeHeuristic}</option>
+                      <option value="llm">{t.vision.modeLlm}</option>
+                    </select>
+                    {mode === "llm" && chatModel && (
+                      <span className="chip" title={t.settings.mdChat}>
+                        {chatModel}
+                      </span>
+                    )}
                     <button className="btn" onClick={runLens} disabled={busy === "lens"}>
                       {busy === "lens" ? t.common.processing : t.workbench.run}
                     </button>
                   </div>
+                  {mode === "llm" && (
+                    <p className="muted" style={{ fontSize: 12, marginTop: 0 }}>
+                      {t.vision.llmModeNote}
+                    </p>
+                  )}
+                  {runError?.where === "lens" && (
+                    <p className="notice" style={{ marginTop: 8 }} role="alert">{runError.message}</p>
+                  )}
                   {claims?.claims?.map((c: any, i: number) => (
                     <p key={i} style={{ margin: "6px 0" }}>
                       {c.claim}
